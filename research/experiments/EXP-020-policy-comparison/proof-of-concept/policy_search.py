@@ -558,6 +558,11 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
     ]
     if args.agent_kind == "pcla" and args.pcla_agent:
         command.extend(["--pcla-agent", args.pcla_agent])
+    if args.agent_kind == "autovla":
+        if args.agent_repo_path is not None:
+            command.extend(["--agent-repo-path", str(args.agent_repo_path)])
+        if args.agent_config is not None:
+            command.extend(["--agent-config", str(args.agent_config)])
 
     env = os.environ.copy()
     if args.cuda_visible_devices is not None:
@@ -641,6 +646,11 @@ def _run_evaluation_diagnostics(args: argparse.Namespace, spec_payload: dict, ca
     ]
     if args.agent_kind == "pcla" and args.pcla_agent:
         command.extend(["--pcla-agent", args.pcla_agent])
+    if args.agent_kind == "autovla":
+        if args.agent_repo_path is not None:
+            command.extend(["--agent-repo-path", str(args.agent_repo_path)])
+        if args.agent_config is not None:
+            command.extend(["--agent-config", str(args.agent_config)])
     env = os.environ.copy()
     if args.graphics_adapter is not None:
         env["MRES_CARLA_GRAPHICS_ADAPTER"] = str(args.graphics_adapter)
@@ -721,6 +731,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--agent-kind", default="pcla")
     parser.add_argument("--pcla-agent", default="if_if")
+    parser.add_argument("--agent-repo-path", type=Path, default=None,
+                        help="Agent repository path for external kinds (e.g., autovla).")
+    parser.add_argument("--agent-config", type=Path, default=None,
+                        help="Agent config/checkpoint path for external kinds (e.g., autovla).")
     parser.add_argument("--coverage-profile", type=Path, default=Path("research/logs/coverage/if-if-safe-prefix-profile.joblib"))
     parser.add_argument("--max-ticks", type=int, default=500)
     parser.add_argument("--boot-timeout-seconds", type=float, default=240.0)

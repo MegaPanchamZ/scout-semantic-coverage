@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -142,6 +143,12 @@ def main() -> None:
     runner = HarnessRunner(config, observers=observers or None)
     result = runner.run(scenario)
     print(json.dumps(result.to_dict(), indent=2))
+    # Some agent stacks (e.g., PCLA/TransFuser) leave non-joinable worker
+    # threads that abort the interpreter during teardown after all results
+    # have been written. Exit explicitly once the artifacts are on disk.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
 
 
 if __name__ == "__main__":

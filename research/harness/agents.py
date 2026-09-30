@@ -68,6 +68,20 @@ def make_agent(world: Any, ego_vehicle: Any, agent_config: AgentConfig, client: 
         config_path = str(agent_config.config_path) if agent_config.config_path is not None else None
         return load_leaderboard_agent(world, ego_vehicle, agent_config.repo_path, agent_config.module_name, config_path)
 
+    if agent_config.kind == "autovla":
+        from research.harness.autovla_bridge import AutoVlaAdapter
+
+        if client is None:
+            raise ValueError("AutoVLA requires a CARLA client instance.")
+        ensure_local_carla_agents_on_path()
+        return AutoVlaAdapter(
+            world,
+            ego_vehicle,
+            client,
+            repo_path=agent_config.repo_path,
+            checkpoint_dir=agent_config.config_path,
+        )
+
     if agent_config.kind == "pcla":
         ensure_local_carla_agents_on_path()
         if client is None:
