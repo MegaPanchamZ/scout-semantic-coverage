@@ -1,0 +1,873 @@
+#!/usr/bin/env python
+"""Matched-budget policy search over the threshold-crossing candidate space.
+
+Two execution modes:
+
+- ``server`` (default): evaluations run against a long-lived CARLA server on
+  ``--server-port``. The server is (re)started automatically if it is not
+  reachable. Each evaluation still runs in a fresh Python process
+  (``run_shakedown.py``), which is the isolation the paper's protocol requires.
+- ``diagnostics``: legacy hard-restart mode; boots and tears down CARLA per
+  candidate via ``run_inter_session_diagnostics.py``. Slower and flakier on
+  Linux/OpenGL; kept for compatibility.
+
+Selection policies (all share the same candidate space and dedup rule):
+
+- ``random``   : uniform sampling over the search space.
+- ``lsa``      : elite-guided mutation around the best LSA fitness seen.
+- ``kmnc``     : elite-guided mutation around the best KMNC fitness seen.
+- ``semantic`` : elite-guided mutation around the best semantic candidate. With
+  ``--engine-metrics --oracle PATH`` the elite is the candidate that closed the
+  most *new* oracle obligations for the arm's suite (ties broken by obligations
+  witnessed in the run; collisions are not rewarded). Without the engine flags
+  the archived behaviour is kept: most fulfilled obligations plus a collision
+  bonus.
+
+Engine scoring path (opt-in, additive; default off): ``--engine-metrics``
+requires ``--oracle PATH`` (an EXP-018 inventory). After each evaluation the
+arm's semantic stream is scored by ``research/harness/coverage_engine.py`` and
+the row receives ``engine_cov_v/a/e/h`` (suite-level, mapped subset),
+``engine_new_obligations``, ``engine_run_covered_count``,
+``engine_uncovered_count``, ``engine_first_uncover`` and ``engine_error``.
+Missing or failed streams log nulls and never abort the search.
+
+``--search-space campaign`` (the pre-registered four-dimensional space) is the
+campaign configuration; ``--search-space legacy`` reproduces the pilot's
+one-dimensional ``trigger_radius_m`` space so archived sessions and seeds stay
+reproducible. Every policy arm must be launched with the same flag and
+``--evals`` for the matched-budget comparison.
+
+Every evaluation appends one JSON row to ``rows.jsonl`` so runs can resume.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+from pathlib import Path
+import random
+import signal
+import socket
+import subprocess
+import sys
+import time
+
+
+WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+if str(WORKSPACE_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_ROOT))
+
+from research.harness.coverage_engine import (  # noqa: E402
+    Oracle,
+    compute_cov,
+    load_ego_route,
+    load_oracle,
+    load_semantic_trace,
+)
+from research.harness.search_space import (  # noqa: E402
+    SearchCandidate,
+    SearchSpace,
+    SearchSpaceError,
+    make_campaign_space,
+    make_legacy_space,
+)
+
+DIAGNOSTICS_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_inter_session_diagnostics.py"
+SHAKEDOWN_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_shakedown.py"
+DEFAULT_PYTHON = WORKSPACE_ROOT / "research" / ".venv" / "bin" / "python"
+DEFAULT_CARLA_ROOT = Path("/mnt/DevDrive/carla-0.9.16")
+DEFAULT_OBLIGATIONS = [
+    "stationary(ego)",
+    "in_front_of(pedestrian,ego)",
+    "crossing_path(pedestrian,ego)",
+    "jaywalking(pedestrian)",
+    "colliding(ego,pedestrian)",
+]
+POLICIES = ("random", "lsa", "kmnc", "semantic")
+
+
+def _port_open(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(2.0)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _carla_ready(python_executable: Path, port: int) -> bool:
+    probe = (
+        "import carla,sys\n"
+        f"c=carla.Client('127.0.0.1',{port});c.set_timeout(10.0)\n"
+        "w=c.get_world();print('READY',w.get_map().name)\n"
+    )
+    try:
+        result = subprocess.run(
+            [str(python_executable), "-c", probe],
+            cwd=WORKSPACE_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return result.returncode == 0 and "READY" in result.stdout
+
+
+def _is_carla_process(entry: Path) -> bool:
+    """True only for the actual CARLA binary, never for shells that merely mention it."""
+    try:
+        exe = os.readlink(entry / "exe")
+    except (OSError, ProcessLookupError):
+        return False
+    return os.path.basename(exe) == "CarlaUE4-Linux-Shipping"
+
+
+def _kill_all_carla() -> None:
+    """SIGKILL every CARLA server process; used when a server wedges mid-evaluation."""
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit() or not _is_carla_process(entry):
+            continue
+        try:
+            os.kill(int(entry.name), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    time.sleep(3.0)
+
+
+def _kill_carla_on_port(port: int) -> None:
+    """SIGKILL any CARLA server bound to ``port`` and wait for the port to close."""
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit() or not _is_carla_process(entry):
+            continue
+        try:
+            cmdline = (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="ignore")
+        except (FileNotFoundError, PermissionError, ProcessLookupError):
+            continue
+        if f"carla-rpc-port={port}" in cmdline:
+            try:
+                os.kill(int(entry.name), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+    deadline = time.time() + 20
+    while time.time() < deadline and _port_open(port):
+        time.sleep(1.0)
+
+
+def _ensure_server(args: argparse.Namespace, port: int) -> None:
+    if _carla_ready(args.python_executable, port):
+        return
+    if _port_open(port):
+        # Port is bound but the server is not answering: wedged process.
+        _kill_carla_on_port(port)
+    launcher = args.carla_root / "CarlaUE4.sh"
+    if not launcher.exists():
+        raise FileNotFoundError(f"CARLA launcher not found at {launcher}")
+    command = [
+        str(launcher),
+        f"-carla-rpc-port={port}",
+        "-quality-level=Low",
+        "-RenderOffScreen",
+        "-opengl",
+        "-nosound",
+    ]
+    if args.graphics_adapter is not None:
+        command.append(f"-graphicsadapter={args.graphics_adapter}")
+    logs_dir = args.output_dir / "server_logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_path = logs_dir / f"carla_{port}.log"
+    log_handle = log_path.open("ab")
+    subprocess.Popen(
+        command,
+        cwd=str(args.carla_root),
+        stdout=log_handle,
+        stderr=log_handle,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    deadline = time.time() + args.boot_timeout_seconds
+    while time.time() < deadline:
+        if _carla_ready(args.python_executable, port):
+            return
+        time.sleep(3.0)
+    raise RuntimeError(f"CARLA server on port {port} did not become ready in time")
+
+
+def _as_float(value: object) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        result = float(value)
+        return result if math.isfinite(result) else None
+    return None
+
+
+def _load_json(path: Path) -> object | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+ENGINE_AXES = ("V", "A", "E", "H")
+
+
+def _latest_semantic_stream(semantic_dir: Path) -> Path | None:
+    """Newest semantic-stream JSONL written under one evaluation's directory."""
+    candidates = sorted(
+        semantic_dir.glob("*-semantic-stream.jsonl"),
+        key=lambda path: path.stat().st_mtime,
+    )
+    return candidates[-1] if candidates else None
+
+
+def _engine_null_metrics(message: str) -> dict:
+    """All engine columns as nulls plus a diagnostic; used on missing/failed streams."""
+    return {
+        "engine_cov_v": None,
+        "engine_cov_a": None,
+        "engine_cov_e": None,
+        "engine_cov_h": None,
+        "engine_new_obligations": None,
+        "engine_run_covered_count": None,
+        "engine_uncovered_count": None,
+        "engine_first_uncover": None,
+        "engine_error": message[-500:],
+    }
+
+
+class EngineCoverageState:
+    """Suite-level obligation bookkeeping for the additive engine scoring path.
+
+    One instance per arm. Each evaluation's semantic stream is scored with the
+    oracle-matched coverage engine; the covered obligations of the run are
+    unioned into the arm's suite set. That union is exactly
+    ``compute_suite_cov``'s rule: node/attribute/relation obligations union
+    across traces, hazard conjunctions credited only within a single trace.
+
+    Failures (missing or malformed stream) return null metrics and an
+    ``engine_error`` string instead of raising, so the search never aborts.
+    """
+
+    def __init__(self, oracle: Oracle) -> None:
+        self.oracle = oracle
+        self.suite_covered: set[str] = set()
+        self.first_uncover: dict[str, int] = {}
+        self._mapped_counts: dict[str, int] | None = None
+        self._axis_by_signature: dict[str, str] = {}
+
+    def _learn_mapping(self, report: dict) -> None:
+        """Cache the (trace-independent) mapped obligation counts and axis index."""
+        if self._mapped_counts is not None:
+            return
+        counts: dict[str, int] = {}
+        for axis in ENGINE_AXES:
+            section = report["dimensions"][axis]
+            counts[axis] = int(section["mapped_obligations"])
+            for row in section["obligations"]:
+                if row.get("mapped"):
+                    self._axis_by_signature[str(row["signature"])] = axis
+        self._mapped_counts = counts
+
+    @property
+    def mapped_total(self) -> int:
+        return sum(self._mapped_counts.values()) if self._mapped_counts else 0
+
+    def observe_stream(self, semantic_dir: Path, eval_index: int) -> dict:
+        """Score one evaluation's stream and return the additive engine columns."""
+        stream_path = _latest_semantic_stream(semantic_dir)
+        if stream_path is None:
+            return _engine_null_metrics(f"no semantic stream under {semantic_dir}")
+        try:
+            ticks = load_semantic_trace(stream_path)
+            ego_route = load_ego_route(stream_path)
+            report = compute_cov(
+                self.oracle,
+                ticks,
+                trace_label=str(stream_path),
+                ego_route=ego_route,
+            )
+        except Exception as exc:  # noqa: BLE001 - metric logging must never abort the search
+            return _engine_null_metrics(f"coverage engine failed for {stream_path}: {exc!r}")
+
+        self._learn_mapping(report)
+        run_covered: set[str] = set()
+        for axis in ENGINE_AXES:
+            for row in report["dimensions"][axis]["obligations"]:
+                if row.get("covered"):
+                    run_covered.add(str(row["signature"]))
+
+        new_obligations = sorted(run_covered - self.suite_covered)
+        for signature in new_obligations:
+            self.first_uncover.setdefault(signature, eval_index)
+        self.suite_covered.update(run_covered)
+
+        metrics = {
+            "engine_new_obligations": len(new_obligations),
+            "engine_run_covered_count": len(run_covered),
+            "engine_uncovered_count": self.mapped_total - len(self.suite_covered),
+            "engine_first_uncover": dict(sorted(self.first_uncover.items())),
+            "engine_error": None,
+        }
+        counts = self._mapped_counts or {axis: 0 for axis in ENGINE_AXES}
+        for axis in ENGINE_AXES:
+            covered = sum(
+                1
+                for signature in self.suite_covered
+                if self._axis_by_signature.get(signature) == axis
+            )
+            total = counts.get(axis, 0)
+            metrics[f"engine_cov_{axis.lower()}"] = (covered / total) if total else None
+        return metrics
+
+    def restore_from_row(self, row: dict) -> None:
+        """Rebuild suite state from previously written engine rows on resume."""
+        first_uncover = row.get("engine_first_uncover")
+        if not isinstance(first_uncover, dict):
+            return
+        for signature, eval_index in first_uncover.items():
+            if not isinstance(signature, str) or isinstance(eval_index, bool):
+                continue
+            if not isinstance(eval_index, int):
+                continue
+            if signature not in self.first_uncover:
+                self.first_uncover[signature] = eval_index
+                self.suite_covered.add(signature)
+
+
+class PolicyState:
+    """Elite memory for the guided policies over one shared SearchSpace."""
+
+    def __init__(self, policy: str, space: SearchSpace) -> None:
+        self.policy = policy
+        self.space = space
+        self.best_values: dict[str, float] | None = None
+        self.best_fitness: float = float("-inf")
+        self.best_tiebreak: float = float("-inf")
+
+    def observe(
+        self,
+        values: dict[str, float] | None,
+        fitness: float | None,
+        tiebreak: float | None = None,
+    ) -> None:
+        if not values or fitness is None:
+            return
+        if tiebreak is None:
+            if fitness > self.best_fitness:
+                self.best_fitness = fitness
+                self.best_values = dict(values)
+            return
+        if fitness > self.best_fitness or (
+            fitness == self.best_fitness and tiebreak > self.best_tiebreak
+        ):
+            self.best_fitness = fitness
+            self.best_tiebreak = tiebreak
+            self.best_values = dict(values)
+
+    def next_candidate(self, rng: random.Random, seen: set[tuple]) -> SearchCandidate:
+        if self.policy == "random" or self.best_values is None or rng.random() < 0.25:
+            return self._sample_uniform(rng, seen)
+        for _ in range(64):
+            candidate = self._mutate_elite(rng)
+            if self.space.key(candidate) not in seen:
+                return candidate
+        return self._sample_uniform(rng, seen)
+
+    def _mutate_elite(self, rng: random.Random) -> SearchCandidate:
+        mutated: dict[str, float] = {}
+        assert self.best_values is not None
+        for dimension in self.space.dimensions():
+            base = float(self.best_values.get(dimension.name, dimension.missing_value()))
+            mutated[dimension.name] = base + rng.gauss(0.0, dimension.sigma_or_default)
+        return self.space.clamp(mutated)
+
+    def _sample_uniform(self, rng: random.Random, seen: set[tuple]) -> SearchCandidate:
+        candidate = self.space.sample(rng)
+        for _ in range(200):
+            if self.space.key(candidate) not in seen:
+                return candidate
+            candidate = self.space.sample(rng)
+        return candidate
+
+
+def _values_from_row(space: SearchSpace, row: dict) -> SearchCandidate | None:
+    payload = row.get("candidate")
+    if isinstance(payload, dict):
+        try:
+            return space.validate(payload)
+        except SearchSpaceError:
+            return None
+    radius = _as_float(row.get("radius"))
+    if radius is not None and "trigger_radius_m" in space.names():
+        values = {dimension.name: dimension.missing_value() for dimension in space.dimensions()}
+        values["trigger_radius_m"] = radius
+        return space.clamp(values)
+    return None
+
+
+def _iter_rows(rows_path: Path):
+    if not rows_path.exists():
+        return
+    for line in rows_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            yield json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+
+def _load_done(rows_path: Path, space: SearchSpace) -> tuple[set[tuple], int]:
+    done: set[tuple] = set()
+    count = 0
+    for row in _iter_rows(rows_path):
+        count += 1
+        candidate = _values_from_row(space, row)
+        if candidate is not None:
+            done.add(space.key(candidate))
+    return done, count
+
+
+def _semantic_fitness(row: dict, policy: str, *, engine_active: bool = False) -> float | None:
+    if policy == "lsa":
+        return _as_float(row.get("coverage_lsa_max"))
+    if policy == "kmnc":
+        return _as_float(row.get("coverage_kmnc"))
+    if policy == "semantic":
+        if engine_active:
+            return _as_float(row.get("engine_new_obligations"))
+        fulfilled = row.get("semantic_fulfilled_obligations")
+        if isinstance(fulfilled, list):
+            return float(len(fulfilled)) + (1.0 if row.get("terminated_by_collision") else 0.0)
+        return None
+    return None
+
+
+def _semantic_tiebreak(row: dict, policy: str, *, engine_active: bool = False) -> float | None:
+    """Second selection key for the engine-driven semantic elite: run-witnessed count."""
+    if policy != "semantic" or not engine_active:
+        return None
+    return _as_float(row.get("engine_run_covered_count"))
+
+
+def _inject_obligations(payload: dict, obligations: list[str]) -> None:
+    controller_params = payload.setdefault("controller_params", {})
+    if not controller_params.get("coverage_obligations"):
+        controller_params["coverage_obligations"] = list(obligations)
+
+
+def _strip_adversary(spec: dict) -> dict:
+    stripped = json.loads(json.dumps(spec))
+    stripped["walker_count"] = 0
+    stripped["controller"] = "route_only"
+    stripped["controller_params"] = {}
+    stripped["scenario_id"] = f"{stripped.get('scenario_id', 'scenario')}-control"
+    stripped["description"] = f"{stripped.get('description', '')} No-adversary control."
+    return stripped
+
+
+def _row_from_run(run_payload: dict, duration: float) -> dict:
+    metadata = run_payload.get("metadata") or {}
+    coverage = metadata.get("coverage") or {}
+    semantic = metadata.get("semantic") or {}
+    obligation_credit = semantic.get("obligation_credit") or {}
+    collisions = run_payload.get("collisions") or []
+    return {
+        "duration_s": round(duration, 2),
+        "ticks_executed": run_payload.get("ticks_executed"),
+        "reached_goal": bool(run_payload.get("reached_goal")),
+        "collision_count": run_payload.get("collision_count"),
+        "terminated_by_collision": bool(run_payload.get("terminated_by_collision")),
+        "collision_actors": sorted({str(c.get("actor_type")) for c in collisions if c.get("actor_type")}),
+        "coverage_status": coverage.get("status"),
+        "coverage_kmnc": _as_float(coverage.get("kmnc")),
+        "coverage_lsa_max": _as_float(coverage.get("lsa_max")),
+        "coverage_lsa_mean": _as_float(coverage.get("lsa_mean")),
+        "semantic_fulfilled_obligations": list(obligation_credit.get("fulfilled_obligations") or []),
+        "semantic_missing_obligations": list(obligation_credit.get("missing_obligations") or []),
+        "semantic_covered_predicates": list(semantic.get("covered_predicates") or []),
+        "semantic_covered_signatures": list(semantic.get("covered_signatures") or []),
+        "run_error": None,
+    }
+
+
+def _failure_row(duration: float, message: str) -> dict:
+    return {
+        "duration_s": round(duration, 2),
+        "ticks_executed": None,
+        "reached_goal": False,
+        "collision_count": None,
+        "terminated_by_collision": False,
+        "coverage_kmnc": None,
+        "coverage_lsa_max": None,
+        "semantic_fulfilled_obligations": [],
+        "semantic_missing_obligations": [],
+        "semantic_covered_predicates": [],
+        "run_json_path": None,
+        "run_error": message[-2000:],
+        "subprocess_returncode": None,
+    }
+
+
+def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candidate_id: str, work_dir: Path, port: int) -> dict:
+    work_dir.mkdir(parents=True, exist_ok=True)
+    spec_path = work_dir / f"{candidate_id}.json"
+    _write_json(spec_path, spec_payload)
+    started = time.time()
+    try:
+        _ensure_server(args, port)
+    except Exception as exc:  # noqa: BLE001 - record and continue the matrix
+        return _failure_row(time.time() - started, f"server unavailable on port {port}: {exc!r}")
+
+    command = [
+        str(args.python_executable),
+        str(SHAKEDOWN_SCRIPT),
+        "--scenario-spec",
+        str(spec_path),
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+        "--agent-kind",
+        args.agent_kind,
+        "--max-ticks",
+        str(args.max_ticks),
+        "--output-dir",
+        str(work_dir / "runs"),
+        "--semantic-observer",
+        "--semantic-stream-every",
+        "1",
+        "--semantic-trace-output",
+        str(work_dir / "semantic"),
+        "--semantic-anomaly-output",
+        str(work_dir / "semantic_dumps"),
+        "--coverage-observer",
+        "--coverage-profile",
+        str(args.coverage_profile),
+        "--coverage-trace-output",
+        str(work_dir / "coverage"),
+        "--telemetry-observer",
+        "--telemetry-output",
+        str(work_dir / "telemetry"),
+    ]
+    if args.agent_kind == "pcla" and args.pcla_agent:
+        command.extend(["--pcla-agent", args.pcla_agent])
+
+    env = os.environ.copy()
+    if args.cuda_visible_devices is not None:
+        env["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
+
+    started = time.time()
+    last_error = "no attempt executed"
+    for attempt in range(2):
+        try:
+            _ensure_server(args, port)
+        except Exception as exc:  # noqa: BLE001 - retry once, then record
+            _kill_all_carla()
+            last_error = f"server unavailable on port {port}: {exc!r}"
+            continue
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=WORKSPACE_ROOT,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=args.eval_timeout_seconds,
+            )
+        except subprocess.TimeoutExpired:
+            _kill_all_carla()
+            last_error = f"evaluation timed out after {args.eval_timeout_seconds}s (attempt {attempt + 1})"
+            continue
+        duration = time.time() - started
+        run_files = sorted((work_dir / "runs").glob("*.json"), key=lambda p: p.stat().st_mtime)
+        run_payload = _load_json(run_files[-1]) if run_files else None
+        if isinstance(run_payload, dict):
+            row = _row_from_run(run_payload, duration)
+            row["run_json_path"] = str(run_files[-1])
+            row["subprocess_returncode"] = completed.returncode
+            if completed.returncode != 0:
+                row["run_error"] = completed.stderr[-2000:]
+            return row
+        last_error = (completed.stderr or completed.stdout)[-2000:]
+        _kill_all_carla()
+    return _failure_row(time.time() - started, last_error)
+
+
+def _run_evaluation_diagnostics(args: argparse.Namespace, spec_payload: dict, candidate_id: str, work_dir: Path, port: int) -> dict:
+    work_dir.mkdir(parents=True, exist_ok=True)
+    spec_path = work_dir / f"{candidate_id}.json"
+    _write_json(spec_path, spec_payload)
+    command = [
+        str(args.python_executable),
+        str(DIAGNOSTICS_SCRIPT),
+        "--scenario-spec",
+        str(spec_path),
+        "--runs",
+        "1",
+        "--carla-root",
+        str(args.carla_root),
+        "--agent-kind",
+        args.agent_kind,
+        "--max-ticks",
+        str(args.max_ticks),
+        "--port",
+        str(port),
+        "--boot-timeout-seconds",
+        str(args.boot_timeout_seconds),
+        "--output-dir",
+        str(work_dir / "diagnostics"),
+        "--run-output-dir",
+        str(work_dir / "runs"),
+        "--telemetry-output",
+        str(work_dir / "telemetry"),
+        "--coverage-trace-output",
+        str(work_dir / "coverage"),
+        "--semantic-output",
+        str(work_dir / "semantic"),
+        "--semantic-anomaly-output",
+        str(work_dir / "semantic_dumps"),
+        "--coverage-profile",
+        str(args.coverage_profile),
+        "--label",
+        candidate_id,
+    ]
+    if args.agent_kind == "pcla" and args.pcla_agent:
+        command.extend(["--pcla-agent", args.pcla_agent])
+    env = os.environ.copy()
+    if args.graphics_adapter is not None:
+        env["MRES_CARLA_GRAPHICS_ADAPTER"] = str(args.graphics_adapter)
+    if args.cuda_visible_devices is not None:
+        env["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
+    started = time.time()
+    completed = subprocess.run(command, cwd=WORKSPACE_ROOT, env=env, text=True, capture_output=True, check=False)
+    duration = time.time() - started
+    _reap_orphan_carla(keep_port=port)
+    run_files = sorted((work_dir / "runs").glob("*.json"), key=lambda p: p.stat().st_mtime)
+    run_payload = _load_json(run_files[-1]) if run_files else None
+    if isinstance(run_payload, dict):
+        row = _row_from_run(run_payload, duration)
+        row["run_json_path"] = str(run_files[-1])
+        row["subprocess_returncode"] = completed.returncode
+        return row
+    return {
+        "duration_s": round(duration, 2),
+        "ticks_executed": None,
+        "reached_goal": False,
+        "collision_count": None,
+        "terminated_by_collision": False,
+        "coverage_kmnc": None,
+        "coverage_lsa_max": None,
+        "semantic_fulfilled_obligations": [],
+        "semantic_missing_obligations": [],
+        "semantic_covered_predicates": [],
+        "run_json_path": None,
+        "run_error": (completed.stderr or completed.stdout)[-2000:],
+        "subprocess_returncode": completed.returncode,
+    }
+
+
+def _reap_orphan_carla(keep_port: int) -> None:
+    killed = False
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            cmdline = (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="ignore")
+        except (FileNotFoundError, PermissionError, ProcessLookupError):
+            continue
+        if "CarlaUE4-Linux-Shipping" not in cmdline:
+            continue
+        if f"carla-rpc-port={keep_port}" in cmdline:
+            continue
+        try:
+            os.kill(int(entry.name), signal.SIGTERM)
+            killed = True
+        except (ProcessLookupError, PermissionError):
+            pass
+    if killed:
+        time.sleep(2.0)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Matched-budget policy search over scenario candidates.")
+    parser.add_argument("--policy", required=True, choices=POLICIES)
+    parser.add_argument("--base-spec", type=Path, required=True)
+    parser.add_argument("--route-label", required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--mode", choices=("server", "diagnostics"), default="server")
+    parser.add_argument("--server-port", type=int, default=2000)
+    parser.add_argument("--carla-root", type=Path, default=DEFAULT_CARLA_ROOT)
+    parser.add_argument("--python-executable", type=Path, default=DEFAULT_PYTHON)
+    parser.add_argument(
+        "--search-space",
+        choices=("campaign", "legacy"),
+        default="legacy",
+        help="Candidate space: 'campaign' is the pre-registered four-dimensional space; 'legacy' is the pilot's 1-D trigger_radius_m space.",
+    )
+    parser.add_argument("--mutation-path", default="controller_params.trigger_radius_m", help="Legacy space only.")
+    parser.add_argument("--mutation-min", type=float, default=5.0, help="Legacy space only.")
+    parser.add_argument("--mutation-max", type=float, default=35.0, help="Legacy space only.")
+    parser.add_argument("--mutation-sigma", type=float, default=4.0, help="Legacy space only.")
+    parser.add_argument("--mutation-decimals", type=int, default=2, help="Legacy space only.")
+    parser.add_argument("--evals", type=int, default=20)
+    parser.add_argument("--seed", type=int, default=13)
+    parser.add_argument("--agent-kind", default="pcla")
+    parser.add_argument("--pcla-agent", default="if_if")
+    parser.add_argument("--coverage-profile", type=Path, default=Path("research/logs/coverage/if-if-safe-prefix-profile.joblib"))
+    parser.add_argument("--max-ticks", type=int, default=500)
+    parser.add_argument("--boot-timeout-seconds", type=float, default=240.0)
+    parser.add_argument("--eval-timeout-seconds", type=float, default=300.0)
+    parser.add_argument("--graphics-adapter", type=int, default=None)
+    parser.add_argument("--cuda-visible-devices", default=None)
+    parser.add_argument("--obligations", nargs="*", default=None)
+    parser.add_argument("--control", action="store_true", help="Run no-adversary controls instead of search.")
+    parser.add_argument(
+        "--oracle",
+        type=Path,
+        default=None,
+        help="EXP-018 oracle inventory JSON; with --engine-metrics enables the additive engine scoring path.",
+    )
+    parser.add_argument(
+        "--engine-metrics",
+        action="store_true",
+        help=(
+            "Score semantic candidates by suite gap closure and log engine_* metrics per row "
+            "(requires --oracle). Default off keeps archived behaviour."
+        ),
+    )
+    return parser
+
+
+def _build_search_space(args: argparse.Namespace) -> SearchSpace:
+    if args.search_space == "campaign":
+        return make_campaign_space(seed=args.seed)
+    if args.mutation_min > args.mutation_max:
+        raise ValueError("--mutation-min must be less than or equal to --mutation-max.")
+    return make_legacy_space(
+        spec_path=args.mutation_path,
+        low=args.mutation_min,
+        high=args.mutation_max,
+        decimals=args.mutation_decimals,
+        sigma=args.mutation_sigma,
+        seed=args.seed,
+    )
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.engine_metrics and args.oracle is None:
+        parser.error("--engine-metrics requires --oracle PATH")
+    args.base_spec = args.base_spec if args.base_spec.is_absolute() else (WORKSPACE_ROOT / args.base_spec).resolve()
+    args.output_dir = args.output_dir if args.output_dir.is_absolute() else (WORKSPACE_ROOT / args.output_dir).resolve()
+    args.coverage_profile = args.coverage_profile if args.coverage_profile.is_absolute() else (WORKSPACE_ROOT / args.coverage_profile).resolve()
+    if args.oracle is not None:
+        args.oracle = args.oracle if args.oracle.is_absolute() else (WORKSPACE_ROOT / args.oracle).resolve()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    rows_path = args.output_dir / "rows.jsonl"
+    obligations = list(args.obligations) if args.obligations else list(DEFAULT_OBLIGATIONS)
+
+    engine_active = bool(args.engine_metrics)
+    engine_state: EngineCoverageState | None = None
+    if engine_active:
+        try:
+            engine_state = EngineCoverageState(load_oracle(args.oracle))
+        except (OSError, ValueError) as exc:
+            parser.error(f"--oracle could not be loaded: {exc}")
+
+    base_payload = json.loads(args.base_spec.read_text(encoding="utf-8"))
+    space = _build_search_space(args)
+
+    run_evaluation = _run_evaluation_server if args.mode == "server" else _run_evaluation_diagnostics
+    seen, done_count = _load_done(rows_path, space)
+    rng = random.Random(args.seed)
+    state = PolicyState(args.policy, space)
+    for row in _iter_rows(rows_path):
+        previous = _values_from_row(space, row)
+        state.observe(
+            previous.to_dict() if previous is not None else None,
+            _semantic_fitness(row, args.policy, engine_active=engine_active),
+            _semantic_tiebreak(row, args.policy, engine_active=engine_active),
+        )
+        if engine_state is not None:
+            engine_state.restore_from_row(row)
+
+    if not args.control and args.base_spec.exists() and not obligations:
+        obligations = list(DEFAULT_OBLIGATIONS)
+
+    for index in range(done_count, args.evals):
+        evaluated_values: dict[str, float] | None = None
+        if args.control:
+            candidate_id = f"control-{index:04d}"
+            payload = _strip_adversary(base_payload)
+            row = {"policy": "control", "route": args.route_label, "eval_index": index}
+        else:
+            candidate: SearchCandidate | None = None
+            if index == 0:
+                base_candidate = space.from_payload(base_payload, fill_missing=args.search_space != "legacy")
+                if base_candidate is not None and space.key(base_candidate) not in seen:
+                    candidate = base_candidate
+            if candidate is None:
+                candidate = state.next_candidate(rng, seen)
+            seen.add(space.key(candidate))
+            payload = space.apply_to_payload(base_payload, candidate)
+            _inject_obligations(payload, obligations)
+            payload["scenario_id"] = f"{base_payload.get('scenario_id', 'scenario')}-{args.policy}-{index:04d}"
+            payload["description"] = (
+                f"{base_payload.get('description', '')} Policy {args.policy} candidate {index} "
+                f"({space.name}: {json.dumps(candidate.to_dict(), sort_keys=True)})."
+            )
+            candidate_id = f"{args.policy}-{index:04d}"
+            evaluated_values = {name: float(value) for name, value in candidate.to_dict().items()}
+            row = {
+                "policy": args.policy,
+                "route": args.route_label,
+                "eval_index": index,
+                "candidate": candidate.to_dict(),
+                "space": space.name,
+                "space_signature": space.signature(),
+            }
+            radius = candidate.values.get("trigger_radius_m")
+            if radius is not None:
+                row["radius"] = radius
+
+        work_dir = args.output_dir / "evaluations" / candidate_id
+        port = args.server_port if args.mode == "server" else args.server_port + index
+        row.update(run_evaluation(args=args, spec_payload=payload, candidate_id=candidate_id, work_dir=work_dir, port=port))
+        if engine_state is not None and not args.control:
+            row.update(engine_state.observe_stream(work_dir / "semantic", index))
+        with rows_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(row) + "\n")
+        if not args.control:
+            state.observe(
+                evaluated_values,
+                _semantic_fitness(row, args.policy, engine_active=engine_active),
+                _semantic_tiebreak(row, args.policy, engine_active=engine_active),
+            )
+        print(json.dumps({
+            "eval": row.get("eval_index"),
+            "radius": row.get("radius"),
+            "candidate": row.get("candidate"),
+            "ticks": row.get("ticks_executed"),
+            "coll": row.get("collision_count"),
+            "goal": row.get("reached_goal"),
+            "kmnc": row.get("coverage_kmnc"),
+            "lsa_max": row.get("coverage_lsa_max"),
+            "fulfilled": len(row.get("semantic_fulfilled_obligations") or []),
+            "sec": row.get("duration_s"),
+            "err": (row.get("run_error") or "")[:100] or None,
+        }), flush=True)
+
+    print(f"complete: {args.output_dir}")
+
+
+if __name__ == "__main__":
+    main()

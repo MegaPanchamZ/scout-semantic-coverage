@@ -1,0 +1,76 @@
+{
+  "scenario_id": "town10hd_spawn0_goal44_threshold_crossing",
+  "town": "Town10HD_Opt",
+  "weather_preset": "ClearNoon",
+  "ego_spawn_index": 0,
+  "goal_spawn_index": 44,
+  "description": "Generated threshold-triggered walker crossing on Town10HD_Opt near route waypoint 10; walker begins crossing when ego enters a 8.0 m trigger zone.",
+  "max_ticks": 500,
+  "npc_vehicle_count": 0,
+  "walker_count": 1,
+  "controller": "threshold_crossing_adversary",
+  "controller_params": {
+    "adversary_kind": "walker",
+    "blueprint_filter": "walker.pedestrian.*",
+    "speed": 1.8,
+    "trigger_radius_m": 8.0,
+    "trigger_location": {
+      "x": -54.36567306518555,
+      "y": 21.729732513427734,
+      "z": 0.0
+    },
+    "spawn_transform": {
+      "location": {
+        "x": -41.465362548828125,
+        "y": 16.559104919433594,
+        "z": 0.800000011920929
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": -63.47138214111328,
+        "roll": 0.0
+      }
+    },
+    "destination_location": {
+      "x": -52.425575256347656,
+      "y": 11.08770751953125,
+      "z": 0.800000011920929
+    },
+    "subgraph_type": "junction-crossing",
+    "route_anchor_index": 10,
+    "route_anchor_location": {
+      "x": -46.94546890258789,
+      "y": 13.823406219482422,
+      "z": 0.0
+    },
+    "route_anchor_is_junction": true
+  },
+  "generator_metadata": {
+    "generated_at": "2026-09-29T09:04:37.805924+00:00",
+    "town": "Town10HD_Opt",
+    "weather_preset": "ClearNoon",
+    "route_waypoint_count": 278,
+    "route_length_m": 569.5797293186188,
+    "junction_anchor_index": 10,
+    "junction_anchor_location": {
+      "x": -46.94546890258789,
+      "y": 13.823406219482422,
+      "z": 0.0
+    },
+    "trigger_location": {
+      "x": -54.36567306518555,
+      "y": 21.729732513427734,
+      "z": 0.0
+    },
+    "ego_spawn_location": {
+      "x": -64.64484405517578,
+      "y": 24.471010208129883,
+      "z": 0.5999999642372131
+    },
+    "goal_spawn_location": {
+      "x": 109.52326965332031,
+      "y": 89.83672332763672,
+      "z": 0.5999999642372131
+    }
+  }
+}

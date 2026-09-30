@@ -1,0 +1,48 @@
+{
+  "scenario_id": "town02_spawn98_goal35_threshold_crossing",
+  "town": "Town02",
+  "weather_preset": "ClearNoon",
+  "ego_spawn_index": 98,
+  "goal_spawn_index": 35,
+  "description": "Generated threshold-triggered walker crossing on Town02 near route waypoint 16 (route town02_spawn98_goal35, 66.0 m); walker begins crossing when ego enters a 20.0 m trigger zone.",
+  "max_ticks": 500,
+  "npc_vehicle_count": 0,
+  "walker_count": 1,
+  "controller": "threshold_crossing_adversary",
+  "controller_params": {
+    "adversary_kind": "walker",
+    "blueprint_filter": "walker.pedestrian.*",
+    "speed": 1.8,
+    "trigger_radius_m": 20.0,
+    "trigger_location": {
+      "x": -7.442569255828857,
+      "y": 239.24049377441406,
+      "z": 0.0
+    },
+    "spawn_transform": {
+      "location": {
+        "x": -14.439004898071289,
+        "y": 251.2543182373047,
+        "z": 0.800000011920929
+      },
+      "rotation": {
+        "pitch": 360.0,
+        "yaw": 89.90901947021484,
+        "roll": 0.0
+      }
+    },
+    "destination_location": {
+      "x": -0.43902158737182617,
+      "y": 251.2321014404297,
+      "z": 0.800000011920929
+    },
+    "subgraph_type": "mid-route-crossing",
+    "route_anchor_index": 16,
+    "route_anchor_location": {
+      "x": -7.4390130043029785,
+      "y": 251.2432098388672,
+      "z": 0.0
+    },
+    "route_anchor_is_junction": false
+  }
+}

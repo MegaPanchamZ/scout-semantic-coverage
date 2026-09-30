@@ -1,0 +1,110 @@
+{
+  "scenario_id": "signalized-threshold-crossing",
+  "description": "Signalized pedestrian threshold-crossing family compiled from a semantic scene specification.",
+  "language_spec": "Generate a four-way urban junction where the ego vehicle approaches a signalized crossing and a pedestrian may enter the ego path under different light states. Full coverage requires testing green, yellow, and red light states rather than only the nominal green case.",
+  "base_scenario": {
+    "town": "Town01",
+    "weather_preset": "ClearNoon",
+    "ego_spawn_index": 0,
+    "goal_spawn_index": 82,
+    "max_ticks": 450,
+    "controller": "threshold_crossing",
+    "controller_params": {
+      "trigger_radius_m": 18.0,
+      "walker_speed": 1.8,
+      "right_offset": 4.5,
+      "forward_offset": 16.0
+    }
+  },
+  "world_model": {
+    "environment_prompt": "Urban signalized junction with controllable weather, traffic-light state, and pedestrian crossing onset for ADS stress testing.",
+    "control_mode": "structured_scene",
+    "sensor_modalities": [
+      "rgb_multiview",
+      "lidar"
+    ]
+  },
+  "actors": [
+    {
+      "id": "ego",
+      "type": "vehicle.ego"
+    },
+    {
+      "id": "pedestrian_1",
+      "type": "pedestrian",
+      "behaviors": [
+        "waiting",
+        "crossing"
+      ]
+    },
+    {
+      "id": "traffic_light_main",
+      "type": "traffic_light",
+      "states": [
+        "green",
+        "yellow",
+        "red"
+      ]
+    }
+  ],
+  "coverage_axes": [
+    {
+      "key": "traffic_light_main.state",
+      "values": [
+        "green",
+        "yellow",
+        "red"
+      ],
+      "required": true,
+      "description": "Signal phase coverage must distinguish safe passage from conflicting right-of-way states."
+    },
+    {
+      "key": "pedestrian_1.behavior",
+      "values": [
+        "waiting",
+        "crossing"
+      ],
+      "required": true,
+      "description": "The STSG must distinguish actor presence from actual conflict formation."
+    },
+    {
+      "key": "weather",
+      "values": [
+        "ClearNoon",
+        "WetCloudyNoon"
+      ],
+      "required": true,
+      "description": "Coverage should not collapse to clear-weather only conditions."
+    }
+  ],
+  "stsg_targets": {
+    "node_types": [
+      "vehicle",
+      "pedestrian",
+      "traffic_light"
+    ],
+    "attributes": [
+      "traffic_light_main.state=green",
+      "traffic_light_main.state=yellow",
+      "traffic_light_main.state=red",
+      "pedestrian_1.behavior=waiting",
+      "pedestrian_1.behavior=crossing"
+    ],
+    "relations": [
+      "in_front_of(pedestrian,ego)",
+      "crossing_path(pedestrian,ego)",
+      "has_signal(ego_lane,traffic_light_main)"
+    ],
+    "checklist_items": [
+      "signalized-crossing",
+      "right-of-way-conflict"
+    ]
+  },
+  "existing_coverage": {
+    "covered_obligations": [
+      "traffic_light_main.state=green",
+      "pedestrian_1.behavior=waiting",
+      "weather=ClearNoon"
+    ]
+  }
+}

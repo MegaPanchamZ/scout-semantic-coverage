@@ -1,0 +1,76 @@
+{
+  "scenario_id": "town05_spawn218_goal257_threshold_crossing",
+  "town": "Town05_Opt",
+  "weather_preset": "ClearNoon",
+  "ego_spawn_index": 218,
+  "goal_spawn_index": 257,
+  "description": "Generated threshold-triggered walker crossing on Town05_Opt near route waypoint 13; walker begins crossing when ego enters a 8.0 m trigger zone.",
+  "max_ticks": 500,
+  "npc_vehicle_count": 0,
+  "walker_count": 1,
+  "controller": "threshold_crossing_adversary",
+  "controller_params": {
+    "adversary_kind": "walker",
+    "blueprint_filter": "walker.pedestrian.*",
+    "speed": 1.8,
+    "trigger_radius_m": 8.0,
+    "trigger_location": {
+      "x": -265.5106506347656,
+      "y": 17.596603393554688,
+      "z": 0.0
+    },
+    "spawn_transform": {
+      "location": {
+        "x": -262.0309143066406,
+        "y": 12.812150955200195,
+        "z": 0.800000011920929
+      },
+      "rotation": {
+        "pitch": 360.0,
+        "yaw": -0.1394500732421875,
+        "roll": 0.0
+      }
+    },
+    "destination_location": {
+      "x": -262.0606994628906,
+      "y": 0.562187671661377,
+      "z": 0.800000011920929
+    },
+    "subgraph_type": "junction-crossing",
+    "route_anchor_index": 13,
+    "route_anchor_location": {
+      "x": -262.0458068847656,
+      "y": 6.687169551849365,
+      "z": 0.0
+    },
+    "route_anchor_is_junction": true
+  },
+  "generator_metadata": {
+    "generated_at": "2026-09-29T09:02:14.791366+00:00",
+    "town": "Town05_Opt",
+    "weather_preset": "ClearNoon",
+    "route_waypoint_count": 398,
+    "route_length_m": 807.314769744873,
+    "junction_anchor_index": 13,
+    "junction_anchor_location": {
+      "x": -262.0458068847656,
+      "y": 6.687169551849365,
+      "z": 0.0
+    },
+    "trigger_location": {
+      "x": -265.5106506347656,
+      "y": 17.596603393554688,
+      "z": 0.0
+    },
+    "ego_spawn_location": {
+      "x": -268.9778747558594,
+      "y": 20.83240509033203,
+      "z": 0.29999998211860657
+    },
+    "goal_spawn_location": {
+      "x": 207.57090759277344,
+      "y": 11.122167587280273,
+      "z": 0.29999998211860657
+    }
+  }
+}
