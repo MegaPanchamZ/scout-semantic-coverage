@@ -1,0 +1,225 @@
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[acmsmall,screen]{acmart}
+
+\usepackage{booktabs}
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\title{Appendix to ``SCOUT: Semantic Coverage-Guided Scenario Generation for Autonomous Driving System Testing''}
+\author{Anonymous Author(s)}
+\renewcommand{\shortauthors}{Anonymous Author(s)}
+
+\begin{document}
+\maketitle
+
+This appendix is a separate document accompanying the anonymous artifact
+repository. Sections, tables, and figures use A-series numbering so that the
+main paper can reference them unambiguously.
+
+\section{TARGET DSL Extensions}
+\label{app:dsl}
+
+Table~\ref{tabA:dsl} formally defines the scenario DSL implemented in the
+artifact. The DSL follows the modular DSL-to-scenario generation pattern
+exemplified by TARGET~\cite{deng2025target}: a scenario program is compiled to
+an internal \texttt{ScenarioSpec} and, where custom geometry is required, to an
+OpenDRIVE map. The constructs below are the extensions added for semantic
+coverage-guided testing (actor controllers, semantic targets, and the
+parameterized five-dimensional search space).
+
+\begin{table}[t]
+\caption{Scenario DSL constructs implemented in the artifact.}
+\label{tabA:dsl}
+\centering
+\small
+\begin{tabular}{@{}L{2.3cm}L{4.2cm}L{5.2cm}@{}}
+\toprule
+Construct & Fields & Semantics \\
+\midrule
+\texttt{[environment]} & \texttt{town}, \texttt{weather}, \texttt{tick\_hz} & Simulation map, weather preset, and stepping rate (10\,Hz in this study). \\
+\texttt{[ego]} & \texttt{route} & Ego route anchor (spawn and goal spawn-point indices); the ADS under test drives the ego. \\
+\texttt{[[actor]]} & \texttt{type}, \texttt{spawn}, \texttt{controller}, \texttt{trigger}, \texttt{speed\_ms} & Adversarial actor with an explicit controller binding and a distance- or tick-based trigger. \\
+\texttt{[targets]} & \texttt{obligations}, \texttt{hazard\_class} & Semantic targets for the coverage engine. Targets are metadata for generation; coverage credit always flows from observation. \\
+\texttt{controller\_params} & \texttt{trigger\_radius\_m}, \texttt{speed}, \texttt{spawn\_transform}, \texttt{destination\_location}, \texttt{trigger\_tick} & Parameters mutated by the search: trigger radius, actor speed, lateral and longitudinal staging offsets, and release tick. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Hazard Templates}
+\label{app:hazards}
+
+The artifact defines nine hazard templates (Table~\ref{tabA:hazards}).
+Templates are developer-defined conjunctions over the data-derived predicate
+vocabulary; each template is instantiated automatically by matching it against
+the nuScenes STSG corpus (Section~A.3), yielding the hazard obligations of the
+semantic obligation inventory. Formulas follow the DoTA-style temporal
+notation used in the inventory artifact where available.
+
+\begin{table}[t]
+\caption{All nine hazard templates with formal definitions.}
+\label{tabA:hazards}
+\centering
+\scriptsize
+\begin{tabular}{@{}L{2.2cm}L{4.3cm}L{5.0cm}@{}}
+\toprule
+Template & Semantic definition & Temporal formula (inventory artifact) \\
+\midrule
+other: ahead\_or\_waiting & vehicle actor that is in front of the ego and stationary for $\ge$ 2 consecutive keyframes & \texttt{Eventually(in\_front\_of(adversary, ego) AND (stationary(adversary) OR braking(adversary)))} \\
+other: start\_stop\_or\_stationary & vehicle actor that is in front of the ego and drops $\ge$ 1.0 m/s of speed across the slice & \texttt{Eventually(in\_front\_of(adversary, ego) AND stationary(adversary))} \\
+other: oncoming & vehicle actor with opposed heading in front of the ego that is closing distance & \texttt{Eventually(oncoming(adversary) AND approaching(adversary, ego))} \\
+other: lateral & vehicle actor that changes to a laterally adjacent lane and crosses the ego path & \texttt{Eventually(lane\_changing(adversary) AND crossing\_path(adversary, ego))} \\
+other: turning & vehicle actor that turns $\ge$ 30 deg while crossing the ego path & \texttt{Eventually(turning(adversary) AND crossing\_path(adversary, ego))} \\
+other: obstacle & static movable object on the road, in front of the ego, in the ego lane & \texttt{Eventually(on\_road(adversary) AND obstructing(adversary, ego))} \\
+other: pedestrian & pedestrian on the roadway outside a ped\_crossing polygon that crosses the ego path (jaywalking proxy) & \texttt{Eventually(jaywalking(adversary) AND crossing\_path(adversary, ego))} \\
+pedestrian\_in\_path & EXP-018 explicit class: pedestrian in front of the ego whose swept path crosses the ego corridor & -- \\
+oncoming\_cut\_in & EXP-018 explicit class (paper example): oncoming actor that reaches the ego lane later in the slice & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Implementation Details}
+\label{app:implementation}
+
+\paragraph{Hazard instantiation.}
+For each scene slice, the matcher first identifies graph nodes satisfying a
+template's node predicates, then incrementally verifies the associated
+attribute, relation, and temporal constraints. Every complete match corresponds
+to one instantiated hazard obligation, recorded in the inventory with its
+supporting slices. Constituent predicates are entirely data-derived; the
+templates themselves are versioned and auditable.
+
+\paragraph{Search algorithm.}
+The search is an elitist hill-climber. A single candidate parameter vector is
+evaluated per step; after the execution, the coverage engine updates the
+suite-level obligation set. For the semantic policy, a candidate's fitness is
+the number of previously uncovered obligations its execution closes (ties
+broken by the total number of witnessed obligations; collisions are never
+rewarded). The next candidate is a Gaussian mutation of the current elite
+within the five-dimensional space; the random policy samples uniformly, and the
+LSA and KMNC policies mutate around the elite under their respective fitness
+values. Near-duplicate candidates are rejected before execution. The five
+dimensions and bounds are: trigger radius $[5,35]$\,m, actor speed
+$[0.8,4.0]$\,m/s, lateral staging offset $[1,14]$\,m, longitudinal staging
+offset $[-10,30]$\,m, and trigger tick $[10,400]$ at 10\,Hz. The evaluated
+scenario family implements the pedestrian-crossing hazard; per-template
+parameter spaces for the remaining templates are not yet implemented and are
+stated as a limitation in the main paper.
+
+\paragraph{Coverage engine.}
+The engine matches observer-emitted facts against the inventory through a
+declarative crosswalk. Of the 103 trainval obligations, 78 (75.7\%) are
+mapped, each labelled direct, derived, or proxy; unmapped obligations are
+recorded with reasons, and four predicate types (\texttt{colliding},
+\texttt{occluded}, \texttt{out\_of\_control}, \texttt{speeding}) are explicitly
+ungrounded. Coverage is reported per dimension with first-witness ticks and
+provenance; hazard conjunctions are credited only within a single trace.
+
+\paragraph{Statistics.}
+Policy comparisons use the Wilcoxon signed-rank test over per-route paired
+differences with Holm--Bonferroni correction across the three comparisons,
+Vargha--Delaney $\hat{A}_{12}$ effect sizes, and bootstrap 95\% confidence
+intervals (2{,}000 resamples, seed 0). Seeds are paired across policies per
+route (seed 13).
+
+\paragraph{TARGET pipeline figure.}
+Figure~3 of the TARGET paper~\cite{deng2025target} illustrates the modular
+DSL-to-scenario pipeline that this work follows. For copyright reasons the
+figure is not reproduced here; readers are referred to the original
+publication.
+
+\section{Additional Tables and Figures}
+\label{app:tables}
+
+\begin{table}[t]
+\caption{Semantic obligation inventory (complete nuScenes trainval split).}
+\label{tabA:oracle}
+\centering
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Property & Value \\
+\midrule
+Scenes processed & 850 \\
+Scene slices & 15{,}204 \\
+Defined predicates & 38 \\
+Node / attribute / relation / hazard obligations & 8 / 51 / 35 / 9 \\
+Total instantiations & 103 \\
+Slices per obligation (median) & 1{,}892 \\
+Obligations witnessed by $<$5 slices & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Per-map endpoint relation and hazard coverage, InterFuser campaign
+(mean over routes; cells show $\mathrm{Cov}_E$ / $\mathrm{Cov}_H$).}
+\label{tabA:permaps}
+\centering
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Map (routes) & Semantic & Random & LSA & KMNC \\
+\midrule
+Town01 (6) & 0.182 / 0.222 & 0.172 / 0.204 & \textbf{0.206} / \textbf{0.244} & 0.172 / 0.204 \\
+Town03 (2) & 0.188 / 0.222 & 0.188 / 0.222 & 0.188 / 0.222 & 0.188 / 0.222 \\
+Town05 (3) & 0.167 / 0.222 & \textbf{0.188} / 0.222 & 0.167 / 0.222 & 0.167 / 0.222 \\
+Town10HD (3) & 0.115 / 0.222 & 0.115 / 0.222 & 0.115 / 0.222 & \textbf{0.125} / 0.222 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Per-map endpoint relation and hazard coverage, AutoVLA campaign
+(mean over routes; cells show $\mathrm{Cov}_E$ / $\mathrm{Cov}_H$).}
+\label{tabA:permaps-av}
+\centering
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Map (routes) & Semantic & Random & LSA & KMNC \\
+\midrule
+Town01 (4) & 0.188 / 0.222 & 0.177 / 0.222 & 0.188 / 0.222 & 0.188 / 0.222 \\
+Town03 (2) & 0.188 / 0.222 & 0.156 / 0.222 & 0.188 / 0.222 & 0.188 / 0.222 \\
+Town05 (3) & 0.188 / 0.222 & 0.188 / 0.222 & 0.188 / 0.222 & 0.172 / 0.167 \\
+Town10HD (3) & 0.125 / 0.222 & \textbf{0.172} / 0.222 & 0.167 / 0.222 & 0.146 / 0.222 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Failure-causing semantic obligations and instances over failing
+executions (both ADSs pooled). An instance is a distinct (obligation,
+trigger-radius 5\,m bucket) pair.}
+\label{tabA:failures}
+\centering
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Policy & Failing executions & Obligations & Instances \\
+\midrule
+Semantic & 529 & 21 & 131 \\
+Random & 511 & 21 & 147 \\
+LSA & 546 & 29 & 155 \\
+KMNC & 506 & 21 & 147 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig-fse-coverage-growth.pdf}
+\caption{Coverage growth by dimension, InterFuser campaign (Figure A1).}
+\label{figA:growth-if}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig-fse-coverage-growth-av.pdf}
+\caption{Coverage growth by dimension, AutoVLA campaign (Figure A2).}
+\label{figA:growth-av}
+\end{figure}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{acmart}
+
+\end{document}
