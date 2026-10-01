@@ -201,12 +201,28 @@ class AutoVlaAdapter:
         v = self._ego.get_velocity()
         speed = math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)
         distances = _np.concatenate(([0.0], _np.cumsum(_np.linalg.norm(_np.diff(xy, axis=0), axis=1))))
-        planned_distance = _np.interp(target_time, times, distances) - _np.interp(elapsed, times, distances)
-        target_speed = min(self._target_speed, float(planned_distance / (target_time - elapsed)))
+        # Look a fixed distance ahead along the predicted path. Sampling the
+        # displacement over the next second starts inside the near-zero segment
+        # of a from-rest prediction (the model predicts ~0.4 m in the first
+        # second and only then accelerates), which stalls a stationary ego: the
+        # old 1 s window gave target_speed < 0.1, the controller braked, the
+        # scenario never advanced and the model kept predicting a from-rest
+        # start. A 2 s lookahead with a 0.5 s finite difference gives a stable,
+        # positive target as soon as the predicted path moves.
+        look_time = min(elapsed + 2.0, horizon)
+        look_prev = max(0.0, look_time - 0.5)
+        planned_distance = float(
+            _np.interp(look_time, times, distances) - _np.interp(look_prev, times, distances)
+        )
+        target_speed = min(self._target_speed, planned_distance / max(look_time - look_prev, 1e-3))
         if target_speed < 0.1:
             return carla.VehicleControl(throttle=0.0, steer=steer, brake=max(0.3, min(1.0, speed * 0.25)))
         err = target_speed - speed
-        throttle = max(0.0, min(0.8, 0.12 * err))
+        # Feed-forward keeps a from-rest ego accelerating; the P term tracks the
+        # predicted speed. P-only (0.12*err) never overcame rolling resistance,
+        # leaving the ego parked with the wheels commanded but not turning.
+        feedforward = 0.1 * target_speed
+        throttle = max(0.0, min(0.85, feedforward + 0.15 * err))
         brake = max(0.0, min(0.6, 0.25 * (-err))) if err < -0.5 else 0.0
         if brake > 0:
             throttle = 0.0

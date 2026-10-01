@@ -144,6 +144,19 @@ def test_autovla_uses_simulator_acceleration(adapter):
     assert seen[0]["vehicle_acceleration"] == [2.5, 0.]
 
 
+def test_autovla_from_rest_prediction_accelerates(adapter):
+    """A from-rest prediction is ~0.4 m in the first second; the tracker must
+    still command throttle instead of stalling at v=0."""
+    from_rest = np.array(
+        [[0.003, 0., 0.], [0.007, 0., 0.], [0.083, 0., 0.], [0.40, 0., 0.],
+         [1.11, 0., 0.], [2.30, 0., 0.], [3.85, 0., 0.], [5.81, 0., 0.],
+         [8.15, 0., 0.], [10.80, 0., 0.]]
+    )
+    control = adapter._control_from_poses(from_rest)
+    assert control.brake == 0.0
+    assert control.throttle > 0.0
+
+
 def test_carla_pythonapi_candidates_prefers_carla_root(tmp_path, monkeypatch):
     from research.harness.leaderboard_bridge import _carla_pythonapi_candidates
 
