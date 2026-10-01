@@ -68,6 +68,7 @@ for route in $ROUTES; do
       --policy "$policy" --python-executable "$PY" \
       --seed "${SCOUT_SEED:-13}" --paired-controls \
       --search-space campaign --hazard-search \
+      --shared-suite \
       --base-spec "$SPEC" \
       --route-label "$route" \
       --output-dir "$OUT/${route}/${policy}" \

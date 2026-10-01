@@ -79,13 +79,16 @@ before attributing anything to the search.
 
 ## Known limitations
 
-- For the semantic method the elite is now keyed by the **selected obligation**,
-  so the parameter search tunes each predicate independently and keeps its memory
-  when the search returns to a target. The coverage policies (lsa/kmnc) keep a
-  per-template elite because their objective is global. Maps/routes remain
-  independent arms (no shared cross-map scheduler).
+- Every policy keys its elite by the **selected obligation**, so all methods run
+  the same target-driven loop (with no active target the template name is used).
+- The covered-obligation suite is shared **across routes/maps per policy**
+  (`--shared-suite`, on by default in the gap launchers), so target selection
+  accounts for coverage found elsewhere in the campaign. Policy arms stay
+  independent (each has its own store) for a fair comparison.
 - `ObligationScheduler.select()` is the single live selection path (called by
   `policy_search._pick_target`) and is given the real covered set, so a credited
   target advances; `observe(set())` is no longer used on the campaign path.
-- Primitive grounding for the mapped simulator predicates remains documented
-  geometric proxies, not manually validated labels.
+- Predicate grounding: the crosswalk still contains `proxy` mappings that are
+  engineering approximations, not validated labels. Use
+  `research/scripts/grounding_validation.py` to review them; producing the labels
+  themselves is manual work (see `GROUNDING_VALIDATION.md`).

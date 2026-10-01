@@ -72,6 +72,7 @@ from research.harness.hazard_search import (  # noqa: E402
     OBLIGATION_TEMPLATE_MAP,
     ObligationScheduler,
 )
+from research.harness.shared_suite import SharedSuiteStore  # noqa: E402
 from research.harness.search_space import (  # noqa: E402
     SearchCandidate,
     SearchSpace,
@@ -113,6 +114,12 @@ def _validate_protocol(args: argparse.Namespace, rows_path: Path, hazard_payload
         "coverage_profile": digest(args.coverage_profile),
         "hazard_specs": hazard_payloads,
     }
+    # Record search-algorithm markers that changed semantics, so rows produced by
+    # a different targeting/aggregation scheme cannot be resumed into this one.
+    if getattr(args, "hazard_search", False):
+        protocol["hazard_elite"] = "per-obligation"
+    if getattr(args, "shared_suite", False):
+        protocol["shared_suite"] = True
     path = args.output_dir / "campaign_protocol.json"
     if rows_path.exists() and rows_path.stat().st_size:
         if not path.exists() or _load_json(path) != protocol:
@@ -800,6 +807,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Skip a hazard target after this many attempts without a credit.")
     parser.add_argument("--hazard-search", action="store_true",
                         help="Hazard-obligation-specific search: per-template parameter spaces with an obligation scheduler.")
+    parser.add_argument("--shared-suite", action="store_true",
+                        help="Share the covered-obligation suite across routes for this policy arm, so target "
+                             "selection accounts for coverage found on other routes/maps (cross-map scheduler).")
+    parser.add_argument("--shared-suite-path", type=Path, default=None,
+                        help="Explicit shared-suite JSON path (default: <campaign root>/shared_suite/<policy>.json).")
     parser.add_argument("--agent-repo-path", type=Path, default=None,
                         help="Agent repository path for external kinds (e.g., autovla).")
     parser.add_argument("--agent-config", type=Path, default=None,
@@ -862,12 +874,12 @@ def _build_search_space(args: argparse.Namespace) -> SearchSpace:
 class _HazardPolicyState:
     """Per-obligation elitist selection for the hazard-scheduled search.
 
-    For the semantic policy the elite is keyed by the *selected obligation* (the
-    scheduler target), so the parameter search tunes each predicate independently
-    and its memory is retained if the search later returns to that target. For
-    the coverage policies (lsa/kmnc) the objective is global, so the elite is
-    keyed by template. With no active target (universe exhausted or stalled) the
-    template name is the key, so exploration still reuses an elite.
+    Every policy keys its elite by the *selected obligation* (the scheduler
+    target) when one is active, so all methods run the same target-driven loop:
+    the parameter search tunes the predicate currently being realised and keeps
+    that memory if the search returns to it. With no active target (universe
+    exhausted or stalled) the template name is the key, so exploration still
+    reuses an elite.
     """
 
     def __init__(self, policy: str) -> None:
@@ -875,9 +887,7 @@ class _HazardPolicyState:
         self.elites: dict[str, tuple[float, float, dict]] = {}  # key -> (fitness, tiebreak, candidate)
 
     def _key(self, template_name: str, target: str | None) -> str:
-        if self.policy == "semantic" and target is not None:
-            return f"target:{target}"
-        return template_name
+        return f"target:{target}" if target is not None else template_name
 
     def next_candidate(self, rng: random.Random, template_name: str, target: str | None = None) -> dict:
         template = HAZARD_TEMPLATES[template_name]
@@ -1035,6 +1045,20 @@ def main() -> None:
                 tiebreak = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
             hazard_state.observe(str(template), row.get("hazard_target"), candidate, fitness, tiebreak)
 
+    # Cross-route suite: union in coverage found on other routes/maps for this
+    # policy arm so target selection reflects the campaign-wide uncovered set.
+    shared_store: SharedSuiteStore | None = None
+    if args.shared_suite and engine_state is not None and not args.control and not args.frozen_base:
+        if args.shared_suite_path is not None:
+            shared_path = args.shared_suite_path
+            if not shared_path.is_absolute():
+                shared_path = (WORKSPACE_ROOT / shared_path).resolve()
+        else:
+            # <campaign root>/<route>/<policy> -> campaign root
+            shared_path = args.output_dir.parent.parent / "shared_suite" / f"{args.policy}.json"
+        shared_store = SharedSuiteStore(shared_path)
+        engine_state.suite_covered |= shared_store.load()
+
     if not args.control and not args.frozen_base and args.base_spec.exists() and not obligations:
         obligations = list(DEFAULT_OBLIGATIONS)
 
@@ -1145,6 +1169,8 @@ def main() -> None:
         covered_before = set(engine_state.suite_covered) if engine_state is not None else None
         if engine_state is not None:
             row.update(engine_state.observe_stream(work_dir / "semantic", index))
+            if shared_store is not None:
+                shared_store.merge(engine_state.suite_covered)
         row["rng_state"] = rng.getstate()
         row["protocol_version"] = PROTOCOL_VERSION
         with rows_path.open("a", encoding="utf-8") as handle:
