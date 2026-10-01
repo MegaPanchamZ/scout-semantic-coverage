@@ -276,7 +276,7 @@ def generate_lead_braking_spec(
     from research.harness.scenario_gen import _cumulative_distances, _location_to_dict, _sample_route
 
     client = carla.Client(host, port)
-    client.set_timeout(20.0)
+    client.set_timeout(180.0)
     world = client.get_world()
     if town.lower() not in world.get_map().name.lower():
         world = client.load_world(town)

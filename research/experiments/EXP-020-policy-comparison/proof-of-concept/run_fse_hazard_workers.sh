@@ -30,15 +30,17 @@ ORACLE=research/experiments/EXP-018-nuscenes-oracle-inventory/artifacts/oracle_i
 EVALS=50
 CONTROLS=8
 
-if [ "$WORKER" = "A" ]; then
-  PORT=2000
-  CUDA=0
-  ROUTES="town01_spawn0_goal82 town01_spawn55_goal154 town01_spawn68_goal218 town03_spawn121_goal2 town03_spawn125_goal223 town05_spawn0_goal124 town05_spawn218_goal257"
-else
-  PORT=2010
-  CUDA=1
-  ROUTES="town05_spawn239_goal100 town10hd_spawn0_goal44 town10hd_spawn1_goal63 town10hd_spawn43_goal100 town01_spawn82_goal200 town01_spawn115_goal206 town01_spawn195_goal197"
-fi
+case "$WORKER" in
+  A) PORT=2000; CUDA=0
+     ROUTES="town01_spawn0_goal82 town01_spawn55_goal154 town01_spawn68_goal218 town03_spawn121_goal2" ;;
+  B) PORT=2010; CUDA=1
+     ROUTES="town03_spawn125_goal223 town05_spawn0_goal124 town05_spawn218_goal257 town05_spawn239_goal100" ;;
+  C) PORT=2020; CUDA=0
+     ROUTES="town10hd_spawn0_goal44 town10hd_spawn1_goal63 town10hd_spawn43_goal100" ;;
+  D) PORT=2030; CUDA=1
+     ROUTES="town01_spawn82_goal200 town01_spawn115_goal206 town01_spawn195_goal197" ;;
+  *) echo "usage: run_fse_hazard_workers.sh A|B|C|D" >&2; exit 2 ;;
+esac
 
 mkdir -p "$OUT"
 
