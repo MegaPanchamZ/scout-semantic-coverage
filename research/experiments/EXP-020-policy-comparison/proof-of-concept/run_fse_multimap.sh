@@ -20,9 +20,10 @@ if [ -z "$WORKER" ]; then
   exit 2
 fi
 
-cd /mnt/DevDrive/development/MRES || exit 1
+ARTIFACT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+cd "$ARTIFACT_ROOT" || exit 1
 
-PY=research/.venv/bin/python
+PY="${PYTHON_EXECUTABLE:-research/.venv/bin/python}"
 SEARCH=research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_search.py
 BASE=research/experiments/EXP-020-policy-comparison/artifacts/base_specs
 OUT=research/logs/fse_search
@@ -53,6 +54,8 @@ for route in $ROUTES; do
       --output-dir "$OUT/${route}/${policy}" \
       --evals "$EVALS" \
       --server-port "$PORT" \
+      --carla-root "${CARLA_ROOT:?Set CARLA_ROOT to the CARLA installation}" \
+      --python-executable "$PY" \
       --max-ticks 500 \
       --engine-metrics --oracle "$ORACLE" \
       --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
@@ -65,6 +68,8 @@ for route in $ROUTES; do
     --output-dir "$OUT/${route}/control" \
     --evals "$CONTROLS" \
     --server-port "$PORT" \
+      --carla-root "${CARLA_ROOT:?Set CARLA_ROOT to the CARLA installation}" \
+      --python-executable "$PY" \
     --max-ticks 500 \
     --engine-metrics --oracle "$ORACLE" \
     --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
