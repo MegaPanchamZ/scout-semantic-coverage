@@ -39,8 +39,8 @@ if [ -n "${SCOUT_AUTOVLA_BACKEND:-}" ]; then
     AUTOVLA_ARGS+=(--autovla-endpoint "$SCOUT_AUTOVLA_ENDPOINT")
   fi
 fi
-EVALS=20
-CONTROLS=8
+EVALS="${SCOUT_EVALS:-20}"
+CONTROLS="${SCOUT_CONTROLS:-8}"
 
 if [ "$WORKER" = "A" ]; then
   PORT=2000
