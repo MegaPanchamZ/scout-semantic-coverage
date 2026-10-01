@@ -860,33 +860,47 @@ def _build_search_space(args: argparse.Namespace) -> SearchSpace:
 
 
 class _HazardPolicyState:
-    """Per-template elitist selection for the hazard-scheduled search."""
+    """Per-obligation elitist selection for the hazard-scheduled search.
+
+    For the semantic policy the elite is keyed by the *selected obligation* (the
+    scheduler target), so the parameter search tunes each predicate independently
+    and its memory is retained if the search later returns to that target. For
+    the coverage policies (lsa/kmnc) the objective is global, so the elite is
+    keyed by template. With no active target (universe exhausted or stalled) the
+    template name is the key, so exploration still reuses an elite.
+    """
 
     def __init__(self, policy: str) -> None:
         self.policy = policy
-        self.elites: dict[str, tuple[float, float, dict]] = {}  # template -> (fitness, tiebreak, candidate)
-        self.targets: dict[str, str | None] = {}
+        self.elites: dict[str, tuple[float, float, dict]] = {}  # key -> (fitness, tiebreak, candidate)
 
-    def set_target(self, template_name: str, target: str | None) -> None:
-        if self.policy == "semantic" and self.targets.get(template_name) != target:
-            self.elites.pop(template_name, None)
-        self.targets[template_name] = target
+    def _key(self, template_name: str, target: str | None) -> str:
+        if self.policy == "semantic" and target is not None:
+            return f"target:{target}"
+        return template_name
 
     def next_candidate(self, rng: random.Random, template_name: str, target: str | None = None) -> dict:
         template = HAZARD_TEMPLATES[template_name]
-        self.set_target(template_name, target)
-        if self.policy == "random" or template_name not in self.elites:
+        key = self._key(template_name, target)
+        if self.policy == "random" or key not in self.elites:
             return template.space.sample(rng)
-        return template.space.mutate(self.elites[template_name][2], rng)
+        return template.space.mutate(self.elites[key][2], rng)
 
-
-    def observe(self, template_name: str, candidate: dict, fitness: float | None, tiebreak: float | None) -> None:
+    def observe(
+        self,
+        template_name: str,
+        target: str | None,
+        candidate: dict,
+        fitness: float | None,
+        tiebreak: float | None,
+    ) -> None:
         if fitness is None:
             return
+        key = self._key(template_name, target)
         tie = tiebreak if tiebreak is not None else 0.0
-        current = self.elites.get(template_name)
+        current = self.elites.get(key)
         if current is None or (fitness, tie) > (current[0], current[1]):
-            self.elites[template_name] = (float(fitness), float(tie), dict(candidate))
+            self.elites[key] = (float(fitness), float(tie), dict(candidate))
 
 def _target_progress(oracle: Oracle, target: str | None, row: dict) -> tuple[float, float]:
     """Reward the active obligation, with its constituent witnesses as guidance."""
@@ -1012,7 +1026,6 @@ def main() -> None:
             if not template or not isinstance(candidate, dict):
                 continue
             seen.add((str(template), json.dumps(candidate, sort_keys=True)))
-            hazard_state.set_target(str(template), row.get("hazard_target"))
             if hazard_scheduler is not None:
                 hazard_scheduler.current = row.get("hazard_target")
             if args.policy == "semantic" and engine_state is not None:
@@ -1020,7 +1033,7 @@ def main() -> None:
             else:
                 fitness = _semantic_fitness(row, args.policy, engine_active=engine_active)
                 tiebreak = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
-            hazard_state.observe(str(template), candidate, fitness, tiebreak)
+            hazard_state.observe(str(template), row.get("hazard_target"), candidate, fitness, tiebreak)
 
     if not args.control and not args.frozen_base and args.base_spec.exists() and not obligations:
         obligations = list(DEFAULT_OBLIGATIONS)
@@ -1144,6 +1157,7 @@ def main() -> None:
                     fitness_value, tiebreak_value = _target_progress(engine_state.oracle, row.get("hazard_target"), row)
                 hazard_state.observe(
                     str(row.get("template")),
+                    row.get("hazard_target"),
                     dict(row.get("candidate") or {}),
                     fitness_value,
                     tiebreak_value,

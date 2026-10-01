@@ -79,8 +79,11 @@ before attributing anything to the search.
 
 ## Known limitations
 
-- Selection and elites are **per template**, not per obligation, and maps/routes
-  are independent arms (no shared cross-map scheduler).
+- For the semantic method the elite is now keyed by the **selected obligation**,
+  so the parameter search tunes each predicate independently and keeps its memory
+  when the search returns to a target. The coverage policies (lsa/kmnc) keep a
+  per-template elite because their objective is global. Maps/routes remain
+  independent arms (no shared cross-map scheduler).
 - `ObligationScheduler.select()` is the single live selection path (called by
   `policy_search._pick_target`) and is given the real covered set, so a credited
   target advances; `observe(set())` is no longer used on the campaign path.

@@ -89,12 +89,17 @@ def test_semantic_elite_is_rescored_against_remaining_gaps():
     assert state.best_values == {"trigger_radius_m": 20.}
 
 
-def test_hazard_elite_is_reset_when_target_changes():
+def test_hazard_elite_is_per_obligation():
     state = policy._HazardPolicyState("semantic")
     state.next_candidate(random.Random(1), "pedestrian_crossing", "first")
-    state.observe("pedestrian_crossing", {"trigger_radius_m": 8.}, 1., 2.)
+    state.observe("pedestrian_crossing", "first", {"trigger_radius_m": 8.}, 1., 2.)
+    # switching obligation keeps each target's own elite (memory is not reset)
     state.next_candidate(random.Random(2), "pedestrian_crossing", "second")
-    assert "pedestrian_crossing" not in state.elites
+    assert "target:first" in state.elites
+    assert "target:second" not in state.elites
+    # a fitter candidate for the same obligation replaces that obligation's elite
+    state.observe("pedestrian_crossing", "first", {"trigger_radius_m": 20.}, 5., 0.)
+    assert state.elites["target:first"][2] == {"trigger_radius_m": 20.}
 
 
 def test_single_stationary_tick_does_not_count_as_waiting():
