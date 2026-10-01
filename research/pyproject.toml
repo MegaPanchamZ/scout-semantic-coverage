@@ -1,7 +1,7 @@
 [project]
 name = "mres-research-harness"
 version = "0.1.0"
-description = "Add your description here"
+description = "SCOUT semantic coverage-guided CARLA research harness"
 readme = "README.md"
 requires-python = ">=3.10, <3.12"
 dependencies = [
@@ -41,6 +41,9 @@ transfuser = [
     "ujson==5.4.0",
     "xmlschema==1.0.18",
 ]
+
+[dependency-groups]
+dev = ["pytest>=8,<9", "matplotlib>=3.7,<4"]
 
 [[tool.uv.index]]
 url = "https://download.pytorch.org/whl/cu130"

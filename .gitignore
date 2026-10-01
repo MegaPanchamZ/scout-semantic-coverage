@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+research/logs/
+research/models/AutoVLA/
+research/models/PCLA/
+*.joblib

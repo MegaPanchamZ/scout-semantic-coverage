@@ -16,14 +16,17 @@ if [ -z "$WORKER" ]; then
   echo "usage: run_search_matrix.sh A or B" >&2
   exit 2
 fi
-PY=/mnt/DevDrive/development/MRES/research/.venv/bin/python
-SEARCH=/mnt/DevDrive/development/MRES/research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_search.py
-BASE=/mnt/DevDrive/development/MRES/research/experiments/EXP-020-policy-comparison/artifacts/base_specs
-OUT=/mnt/DevDrive/development/MRES/research/logs/policy_search
+ARTIFACT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+cd "$ARTIFACT_ROOT" || exit 1
+
+PY="${PYTHON_EXECUTABLE:-research/.venv/bin/python}"
+SEARCH=research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_search.py
+BASE=research/experiments/EXP-020-policy-comparison/artifacts/base_specs
+OUT=research/logs/policy_search
 EVALS_PER_POLICY=30
 CONTROLS=8
 
-cd /mnt/DevDrive/development/MRES || exit 1
+
 
 if [ "$WORKER" = "A" ]; then
   PORT=2000
@@ -46,6 +49,8 @@ for route in $ROUTES; do
       --output-dir "$OUT/${route}/${policy}" \
       --evals "$EVALS_PER_POLICY" \
       --server-port "$PORT" \
+      --carla-root "${CARLA_ROOT:?Set CARLA_ROOT to the CARLA installation}" \
+      --python-executable "$PY" \
       --max-ticks 500 \
       --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
   done
@@ -57,6 +62,8 @@ for route in $ROUTES; do
     --output-dir "$OUT/${route}/control" \
     --evals "$CONTROLS" \
     --server-port "$PORT" \
+      --carla-root "${CARLA_ROOT:?Set CARLA_ROOT to the CARLA installation}" \
+      --python-executable "$PY" \
     --max-ticks 500 \
     --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA" \
     --control

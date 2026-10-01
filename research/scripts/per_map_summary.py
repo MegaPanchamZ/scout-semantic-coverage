@@ -30,6 +30,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--summary", type=Path, required=True)
     ap.add_argument("--out-dir", type=Path, required=True)
+    ap.add_argument("--min-rows", type=int, default=50, help="Minimum valid rows for a search arm to count as complete.")
     args = ap.parse_args()
 
     data = json.loads(args.summary.read_text())
@@ -37,7 +38,7 @@ def main() -> int:
 
     # completeness: search arms target 50, controls 8
     def complete(a):
-        return a["policy"] == "control" or a["n_valid_rows"] >= 50
+        return a["policy"] == "control" or a["n_valid_rows"] >= args.min_rows
 
     by_map = defaultdict(lambda: defaultdict(list))   # map -> policy -> [arm]
     pooled = defaultdict(list)                        # policy -> [arm]

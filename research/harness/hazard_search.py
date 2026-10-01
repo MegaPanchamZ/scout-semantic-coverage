@@ -282,7 +282,9 @@ def generate_lead_braking_spec(
 
     client = carla.Client(host, port)
     client.set_timeout(20.0)
-    world = client.load_world(town)
+    world = client.get_world()
+    if town.lower() not in world.get_map().name.lower():
+        world = client.load_world(town)
     world_map = world.get_map()
     spawn_points = world_map.get_spawn_points()
     ego_spawn = spawn_points[ego_spawn_index]
