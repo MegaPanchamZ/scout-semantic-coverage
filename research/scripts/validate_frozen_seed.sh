@@ -16,7 +16,15 @@ CUDA="${4:-0}"
 OUT="${SCOUT_OUTPUT_DIR:-research/logs/frozen_seed_validation/$(basename "$SPEC" .json)}"
 SEARCH=research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_search.py
 
-echo "=== frozen-seed validation: $SPEC x$REPEATS on GPU $CUDA port $PORT ==="
+# Optional ADS selection. Defaults to the InterFuser/PCLA path used by the
+# campaign. For AutoVLA set SCOUT_AGENT_KIND=autovla and point
+# SCOUT_AGENT_REPO/SCOUT_AGENT_CONFIG at the converted checkpoint.
+AGENT_ARGS=()
+if [ -n "${SCOUT_AGENT_KIND:-}" ]; then AGENT_ARGS+=(--agent-kind "$SCOUT_AGENT_KIND"); fi
+if [ -n "${SCOUT_AGENT_REPO:-}" ]; then AGENT_ARGS+=(--agent-repo-path "$SCOUT_AGENT_REPO"); fi
+if [ -n "${SCOUT_AGENT_CONFIG:-}" ]; then AGENT_ARGS+=(--agent-config "$SCOUT_AGENT_CONFIG"); fi
+
+echo "=== frozen-seed validation: $SPEC x$REPEATS on GPU $CUDA port $PORT (agent ${SCOUT_AGENT_KIND:-pcla}) ==="
 CUDA_VISIBLE_DEVICES="$CUDA" "$PY" "$SEARCH" \
   --policy random --frozen-base \
   --python-executable "$PY" \
@@ -27,6 +35,7 @@ CUDA_VISIBLE_DEVICES="$CUDA" "$PY" "$SEARCH" \
   --server-port "$PORT" \
   --max-ticks 500 \
   --seed "${SCOUT_SEED:-0}" \
+  "${AGENT_ARGS[@]}" \
   --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
 
 "$PY" - "$OUT/rows.jsonl" <<'PYEOF'

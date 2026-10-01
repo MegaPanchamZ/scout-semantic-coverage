@@ -137,3 +137,45 @@ def test_autovla_uses_simulator_acceleration(adapter):
     )
     adapter.run_step()
     assert seen[0]["vehicle_acceleration"] == [2.5, 0.]
+
+
+def test_carla_pythonapi_candidates_prefers_carla_root(tmp_path, monkeypatch):
+    from research.harness.leaderboard_bridge import _carla_pythonapi_candidates
+
+    monkeypatch.setenv("CARLA_ROOT", str(tmp_path / "carla-0.9.16"))
+    candidates = _carla_pythonapi_candidates()
+    assert candidates[0] == tmp_path / "carla-0.9.16" / "PythonAPI" / "carla"
+
+
+def test_compat_route_planner_discovers_carla_root(tmp_path, monkeypatch):
+    module_spec = importlib.util.spec_from_file_location(
+        "compat_route_planner",
+        ROOT / "research/harness/compat/agents/navigation/global_route_planner.py",
+    )
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+
+    agents_root = tmp_path / "CARLA" / "PythonAPI" / "carla"
+    module_file = agents_root / "agents" / "navigation" / "global_route_planner.py"
+    module_file.parent.mkdir(parents=True)
+    module_file.write_text("# fake modern planner\n")
+    monkeypatch.setenv("CARLA_ROOT", str(tmp_path / "CARLA"))
+    assert module._find_modern_global_route_planner() == module_file
+
+
+def test_coverage_observer_survives_missing_profile(tmp_path):
+    pytest.importorskip("torch")
+    import torch
+
+    from research.harness.observers.coverage import CoverageObserver, CoverageObserverConfig
+
+    class _Agent:
+        def __init__(self):
+            self.torch_model = torch.nn.Linear(3, 3)
+
+    observer = CoverageObserver(CoverageObserverConfig(profile_path=tmp_path / "missing.joblib"))
+    context = {"agent": _Agent()}
+    observer.on_run_start(SimpleNamespace(), context)
+    assert observer._profile is None
+    assert observer._status == "profile-load-failed"
+

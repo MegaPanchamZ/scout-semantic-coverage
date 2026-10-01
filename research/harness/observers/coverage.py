@@ -108,7 +108,16 @@ class CoverageObserver:
                 self._notes.append("joblib is not installed, so the coverage profile could not be loaded.")
                 return
             self._joblib = joblib
-            self._profile = joblib.load(self.config.profile_path)
+            try:
+                self._profile = joblib.load(self.config.profile_path)
+            except (OSError, ValueError, EOFError) as exc:
+                # A campaign must still collect traces and report collisions when
+                # the nominal profile has not been fitted yet (e.g. frozen-seed
+                # ADS validation). KMNC/LSA stay null; the run is not aborted.
+                self._profile = None
+                self._status = "profile-load-failed"
+                self._notes.append(f"Could not load coverage profile {self.config.profile_path}: {exc!r}")
+                return
             self._status = "profile-loaded"
 
     def on_tick(self, tick_index: int, context: dict[str, Any]) -> None:

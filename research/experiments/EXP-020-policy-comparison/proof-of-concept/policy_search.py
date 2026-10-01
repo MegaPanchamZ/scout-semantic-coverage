@@ -235,6 +235,22 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def _lead_braking_spec_candidates(base_spec: Path) -> list[Path]:
+    """Locate the lead-braking base spec for ``base_spec``.
+
+    Campaign base specs carry the benign-seed suffix (``*_benign_seed0.json``)
+    while lead-braking specs are generated per route (``*_lead_braking.json``),
+    so the route-level name is checked as well as the suffixed one.
+    """
+    candidates = [base_spec.with_name(base_spec.stem + "_lead_braking.json")]
+    stem = base_spec.stem
+    marker = "_benign_seed"
+    index = stem.find(marker)
+    if index != -1:
+        candidates.append(base_spec.with_name(stem[:index] + "_lead_braking.json"))
+    return candidates
+
+
 ENGINE_AXES = ("V", "A", "E", "H")
 
 
@@ -953,8 +969,8 @@ def main() -> None:
     hazard_target_attempts: dict[str, int] = {}
     if args.hazard_search:
         hazard_payloads["pedestrian_crossing"] = base_payload
-        lead_spec = args.base_spec.with_name(args.base_spec.stem + "_lead_braking.json")
-        if lead_spec.exists():
+        lead_spec = next((path for path in _lead_braking_spec_candidates(args.base_spec) if path.exists()), None)
+        if lead_spec is not None:
             hazard_payloads["lead_vehicle_braking"] = json.loads(lead_spec.read_text(encoding="utf-8"))
         else:
             print(json.dumps({"hazard_search_note": f"lead-braking spec missing for {args.base_spec.stem}; crossing template only"}))

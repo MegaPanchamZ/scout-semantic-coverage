@@ -81,7 +81,8 @@ before attributing anything to the search.
 
 - Selection and elites are **per template**, not per obligation, and maps/routes
   are independent arms (no shared cross-map scheduler).
-- `ObligationScheduler.select()` still calls `observe(set())` and is dead code;
-  the live path is `policy_search._pick_target`, which passes the covered set.
+- `ObligationScheduler.select()` is the single live selection path (called by
+  `policy_search._pick_target`) and is given the real covered set, so a credited
+  target advances; `observe(set())` is no longer used on the campaign path.
 - Primitive grounding for the mapped simulator predicates remains documented
   geometric proxies, not manually validated labels.

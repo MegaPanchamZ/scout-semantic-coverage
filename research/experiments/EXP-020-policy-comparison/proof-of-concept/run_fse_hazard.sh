@@ -16,7 +16,11 @@ for route in town01_spawn0_goal82 town01_spawn55_goal154 town01_spawn68_goal218 
   echo "generated $route" >> research/logs/hazard_specgen.log
 done
 echo "SPECS_DONE $(ls $BASE/*_lead_braking.json | wc -l)" >> research/logs/hazard_specgen.log
-# then launch the two campaign workers
-setsid nohup bash research/experiments/EXP-020-policy-comparison/proof-of-concept/run_fse_hazard_workers.sh A > research/logs/fse_search_hazard_v2/worker-A.log 2>&1 < /dev/null &
-sleep 2
-setsid nohup bash research/experiments/EXP-020-policy-comparison/proof-of-concept/run_fse_hazard_workers.sh B > research/logs/fse_search_hazard_v2/worker-B.log 2>&1 < /dev/null &
+# Launch one worker per GPU. Defaults to the two-worker legacy layout; set
+# SCOUT_WORKERS="A B C D E F G H" for an eight-GPU cluster run.
+SCOUT_WORKERS="${SCOUT_WORKERS:-A B}"
+for worker in $SCOUT_WORKERS; do
+  setsid nohup bash research/experiments/EXP-020-policy-comparison/proof-of-concept/run_fse_hazard_workers.sh "$worker" \
+    > "research/logs/fse_search_hazard_v2/worker-${worker}.log" 2>&1 < /dev/null &
+  sleep 2
+done

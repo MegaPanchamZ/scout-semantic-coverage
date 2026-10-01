@@ -3,11 +3,33 @@ from __future__ import annotations
 import importlib
 import inspect
 import math
+import os
 from pathlib import Path
 import sys
 from typing import Any
 
 import numpy as np
+
+
+def _carla_pythonapi_candidates() -> list[Path]:
+    """Ordered candidate ``.../PythonAPI/carla`` roots for the real CARLA agents.
+
+    ``CARLA_ROOT`` takes precedence (see ``REPRODUCING_SCOUT.md``); the packaged
+    Windows locations are retained for the original development layout.
+    """
+    candidates: list[Path] = []
+    env_root = os.environ.get("CARLA_ROOT")
+    if env_root:
+        candidates.append(Path(env_root) / "PythonAPI" / "carla")
+    candidates.append(Path("/opt/carla/PythonAPI/carla"))
+    candidates.extend(
+        [
+            Path(r"H:\CARLA_0.9.15\WindowsNoEditor\PythonAPI\carla"),
+            Path(r"H:\CARLA_0.9.14\WindowsNoEditor\PythonAPI\carla"),
+            Path(r"H:\CARLA_0.9.16\WindowsNoEditor\PythonAPI\carla"),
+        ]
+    )
+    return candidates
 
 
 def ensure_repo_path(repo_path: Path | None) -> None:
@@ -51,11 +73,7 @@ def ensure_repo_path(repo_path: Path | None) -> None:
 def ensure_local_carla_agents_on_path() -> None:
     workspace_root = Path(__file__).resolve().parents[2]
     compat_root = workspace_root / "research" / "harness" / "compat"
-    packaged_carla_roots = [
-        Path(r"H:\CARLA_0.9.15\WindowsNoEditor\PythonAPI\carla"),
-        Path(r"H:\CARLA_0.9.14\WindowsNoEditor\PythonAPI\carla"),
-        Path(r"H:\CARLA_0.9.16\WindowsNoEditor\PythonAPI\carla"),
-    ]
+    packaged_carla_roots = _carla_pythonapi_candidates()
     local_agents_root = workspace_root / "CarlaUE" / "PythonAPI" / "carla"
     preferred_paths = [compat_root]
     preferred_paths.extend(path for path in packaged_carla_roots if path.exists())

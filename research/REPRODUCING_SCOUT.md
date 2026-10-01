@@ -124,6 +124,13 @@ Workers default to `_benign_seed0` (`SCOUT_BASE_SUFFIX` overrides).
 
 Before full runs, validate one frozen benign seed:
 `bash research/scripts/validate_frozen_seed.sh <spec.json> 20` - 20 identical
-runs, no search; warns if the collision rate is >= 40%.
+runs, no search; warns if the collision rate is >= 40%. The script defaults to
+the PCLA/InterFuser agent; set `SCOUT_AGENT_KIND=autovla` plus
+`SCOUT_AGENT_REPO`/`SCOUT_AGENT_CONFIG` to validate AutoVLA instead. The CARLA
+PythonAPI agents are located through `CARLA_ROOT` (falling back to
+`/opt/carla`), so export it before a run. A missing nominal coverage profile no
+longer aborts a run: coverage metrics are logged as null and collision/goal
+outcomes are still recorded.
 
-Cluster runs use one worker per GPU (`A..H` for 8 GPUs).
+Cluster runs use one worker per GPU (`A..H` for 8 GPUs); `run_fse_hazard.sh`
+launches whichever workers are listed in `SCOUT_WORKERS` (default `A B`).
