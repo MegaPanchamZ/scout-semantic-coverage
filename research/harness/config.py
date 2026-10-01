@@ -9,7 +9,7 @@ from typing import Any
 class HarnessConfig:
     host: str = "127.0.0.1"
     port: int = 2000
-    timeout_seconds: float = 10.0
+    timeout_seconds: float = 60.0
     traffic_manager_port: int = 8000
     synchronous_mode: bool = True
     fixed_delta_seconds: float = 0.1

@@ -184,7 +184,12 @@ class ThresholdCrossingAdversaryController(ScenarioController):
             if actor is None:
                 notes.append("Failed to spawn threshold-triggered vehicle adversary.")
                 return
-            actor.set_autopilot(False)
+            try:
+                # Manual control is the default for spawned vehicles; skip when
+                # several CARLA servers share the default traffic-manager port.
+                actor.set_autopilot(False)
+            except RuntimeError:
+                pass
             self._vehicle_control = carla.VehicleControl(
                 throttle=float(self.params.get("vehicle_throttle", 0.45)),
                 steer=float(self.params.get("vehicle_steer", 0.0)),
@@ -332,7 +337,12 @@ class LeadVehicleBrakingController(ScenarioController):
         if actor is None:
             notes.append("Failed to spawn lead-vehicle braking adversary.")
             return
-        actor.set_autopilot(False)
+        try:
+            # Manual control is the default for spawned vehicles; skip when
+            # several CARLA servers share the default traffic-manager port.
+            actor.set_autopilot(False)
+        except RuntimeError:
+            pass
         self._actor = actor
         self.spawned_actors.append(actor)
         self._pre_brake_control = carla.VehicleControl(
