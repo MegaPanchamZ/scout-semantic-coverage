@@ -1,0 +1,7 @@
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+research/logs/
+research/models/
+.env
+.env.*

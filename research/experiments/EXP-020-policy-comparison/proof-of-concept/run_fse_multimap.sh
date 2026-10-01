@@ -20,12 +20,12 @@ if [ -z "$WORKER" ]; then
   exit 2
 fi
 
-cd /mnt/DevDrive/development/MRES || exit 1
+cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." || exit 1
 
-PY=research/.venv/bin/python
+PY="${SCOUT_PYTHON:-research/.venv/bin/python}"
 SEARCH=research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_search.py
 BASE=research/experiments/EXP-020-policy-comparison/artifacts/base_specs
-OUT=research/logs/fse_search
+OUT="${SCOUT_OUTPUT_ROOT:-research/logs/fse_search_v2/seed-${SCOUT_SEED:-13}}"
 ORACLE=research/experiments/EXP-018-nuscenes-oracle-inventory/artifacts/oracle_inventory_v1.0-trainval.json
 EVALS=50
 CONTROLS=8
@@ -46,7 +46,8 @@ for route in $ROUTES; do
   for policy in random lsa kmnc semantic; do
     echo "=== $(date -Is) worker ${WORKER} route ${route} policy ${policy} ==="
     CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
-      --policy "$policy" \
+      --policy "$policy" --python-executable "$PY" \
+      --seed "${SCOUT_SEED:-13}" --paired-controls \
       --search-space campaign \
       --base-spec "$BASE/${route}.json" \
       --route-label "$route" \
@@ -59,7 +60,8 @@ for route in $ROUTES; do
   done
   echo "=== $(date -Is) worker ${WORKER} route ${route} controls ==="
   CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
-    --policy random --control \
+    --policy random --control --python-executable "$PY" \
+    --seed "${SCOUT_SEED:-13}" \
     --base-spec "$BASE/${route}.json" \
     --route-label "$route" \
     --output-dir "$OUT/${route}/control" \

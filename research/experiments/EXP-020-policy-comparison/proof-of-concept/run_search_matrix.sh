@@ -23,7 +23,7 @@ OUT=/mnt/DevDrive/development/MRES/research/logs/policy_search
 EVALS_PER_POLICY=30
 CONTROLS=8
 
-cd /mnt/DevDrive/development/MRES || exit 1
+cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." || exit 1
 
 if [ "$WORKER" = "A" ]; then
   PORT=2000
@@ -40,6 +40,7 @@ for route in $ROUTES; do
     echo "=== $(date -Is) worker ${WORKER} route ${route} policy ${policy} ==="
     CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
       --policy "$policy" \
+      --seed "${SCOUT_SEED:-13}" --paired-controls \
       --search-space campaign \
       --base-spec "$BASE/${route}.json" \
       --route-label "$route" \

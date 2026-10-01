@@ -26,6 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--scenario-spec", type=Path, default=None)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=2000)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--reload-world", action="store_true")
     parser.add_argument("--output-dir", type=Path, default=Path("research/logs/runs"))
     parser.add_argument("--agent-kind", default="behavior")
     parser.add_argument("--behavior", default="normal", choices=["cautious", "normal", "aggressive"])
@@ -79,6 +81,8 @@ def main() -> None:
     config = AppConfig()
     config.harness.host = args.host
     config.harness.port = args.port
+    config.harness.seed = args.seed
+    config.harness.reload_world = args.reload_world
     config.harness.output_dir = args.output_dir
     config.agent.kind = args.agent_kind
     config.agent.behavior = args.behavior

@@ -7,11 +7,16 @@ requires-python = ">=3.10, <3.12"
 dependencies = [
     "carla==0.9.16",
     "joblib>=1.5.3",
+    "matplotlib>=3.7,<4",
     "networkx>=3.4.2",
     "numpy<2.0.0",
     "scikit-learn>=1.7.2",
+    "scipy>=1.15,<2",
     "shapely>=2.1.2",
 ]
+
+[dependency-groups]
+dev = ["pytest>=8,<9"]
 
 [project.optional-dependencies]
 perception = [
@@ -19,6 +24,9 @@ perception = [
     "scallopy",
     "sentencepiece>=0.2.0",
     "transformers==4.46.2",
+]
+runpod = [
+    "runpod>=1.7.0",
 ]
 transfuser = [
     "dictor==0.1.12",
@@ -43,7 +51,12 @@ transfuser = [
 ]
 
 [[tool.uv.index]]
+name = "pytorch"
 url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [tool.uv.sources]
+torch = { index = "pytorch", marker = "sys_platform == 'win32'" }
+torchaudio = { index = "pytorch", marker = "sys_platform == 'win32'" }
+torchvision = { index = "pytorch", marker = "sys_platform == 'win32'" }
 scallopy = { git = "https://github.com/scallop-lang/scallop.git", subdirectory = "etc/scallopy" }

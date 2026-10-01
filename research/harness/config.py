@@ -14,6 +14,7 @@ class HarnessConfig:
     synchronous_mode: bool = True
     fixed_delta_seconds: float = 0.1
     seed: int = 42
+    reload_world: bool = False
     output_dir: Path = Path("research/logs/runs")
 
 

@@ -237,18 +237,13 @@ class ObligationScheduler:
 
     def observe(self, covered: set[str]) -> bool:
         """Advance if the current target is now covered. Returns True if advanced."""
-        advanced = False
-        while self.current is None or self.current in covered:
-            if self.current is not None and self.current in covered:
-                self.uncovered.discard(self.current)
-                self.history.append(self.current)
-                advanced = True
-            nxt = self.next_target()
-            if nxt is None or nxt == self.current:
-                self.current = nxt
-                break
-            self.current = nxt
-        return advanced
+        self.uncovered.difference_update(covered)
+        previous = self.current
+        if previous in covered and previous not in self.history:
+            self.history.append(previous)
+        if self.current not in self.uncovered:
+            self.current = self.next_target()
+        return previous != self.current
 
     def select(self, uncovered: set[str]) -> tuple[str | None, HazardTemplate]:
         self.uncovered = set(uncovered)
@@ -282,7 +277,9 @@ def generate_lead_braking_spec(
 
     client = carla.Client(host, port)
     client.set_timeout(20.0)
-    world = client.load_world(town)
+    world = client.get_world()
+    if town.lower() not in world.get_map().name.lower():
+        world = client.load_world(town)
     world_map = world.get_map()
     spawn_points = world_map.get_spawn_points()
     ego_spawn = spawn_points[ego_spawn_index]

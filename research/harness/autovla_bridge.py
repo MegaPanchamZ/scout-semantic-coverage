@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 
 
-DEFAULT_REPO = pathlib.Path("/mnt/DevDrive/development/MRES/research/models/AutoVLA")
+DEFAULT_REPO = pathlib.Path(__file__).resolve().parents[1] / "models" / "AutoVLA"
 DEFAULT_CHECKPOINT = DEFAULT_REPO / "checkpoints" / "AutoVLA-hf"
 CODEBOOK = DEFAULT_REPO / "codebook_cache" / "agent_vocab.pkl"
 
@@ -54,7 +54,8 @@ class AutoVlaAdapter:
         self._ego = ego_vehicle
         self._client = client
         self._device = device
-        self._target_speed = target_speed_mps
+        self._target_speed = target_speed_mps  # upper speed limit, never a forced cruise speed
+        self._fixed_delta_seconds = float(world.get_settings().fixed_delta_seconds or 0.1)
         repo = pathlib.Path(repo_path) if repo_path else DEFAULT_REPO
         if str(repo) not in sys.path:
             sys.path.insert(0, str(repo))
@@ -68,7 +69,7 @@ class AutoVlaAdapter:
                 "pretrained_model_path": str(checkpoint_dir or DEFAULT_CHECKPOINT),
                 "train_vision_backbone": False,
                 "train_lm_backbone": True,
-                "codebook_cache_path": str(CODEBOOK) if pathlib.Path(CODEBOOK).is_absolute() else str(repo / "codebook_cache" / "agent_vocab.pkl"),
+                "codebook_cache_path": str(repo / "codebook_cache" / "agent_vocab.pkl"),
                 "trajectory": {"num_poses": 10, "interval_length": 0.5, "time_horizon": 5.0},
                 "tokens": {"action_start_id": 151665, "ignore_index": -100, "assistant_id": [151644, 77091]},
                 "video": {"min_pixels": 109760, "max_pixels": 109760},
@@ -83,6 +84,7 @@ class AutoVlaAdapter:
         self._frames: dict[str, deque[str]] = {name: deque(maxlen=4) for name, *_ in CAMERA_SPECS}
         self._tick = 0
         self._last_poses: Any = None
+        self._trajectory_origin: tuple[float, float, float] | None = None
         self._last_inference_tick = -10_000
         self._route: list[Any] = []
         self._route_index = 0
@@ -111,11 +113,11 @@ class AutoVlaAdapter:
 
     def _make_callback(self, name: str):
         def _cb(image: Any) -> None:
-            if self._tick % CAPTURE_INTERVAL_TICKS != 0:
+            if image.frame % CAPTURE_INTERVAL_TICKS != 0:
                 return
             cam_dir = self._frame_dir / name
             cam_dir.mkdir(parents=True, exist_ok=True)
-            path = cam_dir / f"{self._tick:05d}.png"
+            path = cam_dir / f"{image.frame:08d}.png"
             image.save_to_disk(str(path))
             self._frames[name].append(str(path))
         return _cb
@@ -174,10 +176,27 @@ class AutoVlaAdapter:
         import numpy as _np
 
         pts = poses.detach().float().cpu().numpy() if hasattr(poses, "detach") else _np.asarray(poses)
-        if pts.ndim != 2 or pts.shape[0] == 0:
+        if pts.ndim != 2 or pts.shape[0] == 0 or pts.shape[1] < 2 or not _np.isfinite(pts[:, :2]).all():
             return carla.VehicleControl(throttle=0.0, brake=0.3)
-        lookahead_idx = min(2, pts.shape[0] - 1)  # ~1.0 s ahead
-        x, y = float(pts[lookahead_idx, 0]), float(pts[lookahead_idx, 1])
+        elapsed = max(0.0, (self._tick - self._last_inference_tick) * self._fixed_delta_seconds)
+        horizon = len(pts) * 0.5
+        if elapsed >= horizon or self._trajectory_origin is None:
+            return carla.VehicleControl(throttle=0.0, brake=0.5)
+        # Poses are in the inference-time ego frame (+y left), sampled every .5 s.
+        # Advance in time and transform the target through that original frame.
+        times = _np.arange(len(pts) + 1) * 0.5
+        xy = _np.vstack((_np.zeros((1, 2)), pts[:, :2]))
+        target_time = min(elapsed + 1.0, horizon)
+        target = _np.array([_np.interp(target_time, times, xy[:, i]) for i in (0, 1)])
+        origin_x, origin_y, origin_yaw = self._trajectory_origin
+        c, s = math.cos(origin_yaw), math.sin(origin_yaw)
+        world_x = origin_x + target[0] * c + target[1] * s
+        world_y = origin_y + target[0] * s - target[1] * c
+        current = self._ego.get_transform()
+        yaw = math.radians(current.rotation.yaw)
+        dx, dy = world_x - current.location.x, world_y - current.location.y
+        x = dx * math.cos(yaw) + dy * math.sin(yaw)
+        y = dx * math.sin(yaw) - dy * math.cos(yaw)
         dist = math.hypot(x, y)
         if dist < 0.5:
             steer = 0.0
@@ -187,9 +206,13 @@ class AutoVlaAdapter:
             steer = max(-1.0, min(1.0, -delta / MAX_STEER_RAD))  # CARLA steer positive = right
         v = self._ego.get_velocity()
         speed = math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)
-        target_speed = self._target_speed
+        distances = _np.concatenate(([0.0], _np.cumsum(_np.linalg.norm(_np.diff(xy, axis=0), axis=1))))
+        planned_distance = _np.interp(target_time, times, distances) - _np.interp(elapsed, times, distances)
+        target_speed = min(self._target_speed, float(planned_distance / (target_time - elapsed)))
+        if target_speed < 0.1:
+            return carla.VehicleControl(throttle=0.0, steer=steer, brake=max(0.3, min(1.0, speed * 0.25)))
         err = target_speed - speed
-        throttle = max(0.0, min(0.8, 0.35 + 0.12 * err))
+        throttle = max(0.0, min(0.8, 0.12 * err))
         brake = max(0.0, min(0.6, 0.25 * (-err))) if err < -0.5 else 0.0
         if brake > 0:
             throttle = 0.0
@@ -205,7 +228,7 @@ class AutoVlaAdapter:
             if all(len(self._frames[name]) >= 4 for name, *_ in CAMERA_SPECS):
                 v = self._ego.get_velocity()
                 speed = math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)
-                accel = (speed - self._last_speed) / 0.1  # 10 Hz
+                acceleration = self._ego.get_acceleration()
                 self._last_speed = speed
                 command = self._driving_command()
                 features = {
@@ -215,7 +238,7 @@ class AutoVlaAdapter:
                         "front_right_camera": list(self._frames["front_right_camera"]),
                     },
                     "vehicle_velocity": [v.x, v.y],
-                    "vehicle_acceleration": [0.0, accel],
+                    "vehicle_acceleration": [acceleration.x, acceleration.y],
                     "driving_command": command,
                     "dataset_name": "nuscenes",
                     "sensor_data_path": None,
@@ -223,11 +246,13 @@ class AutoVlaAdapter:
                 try:
                     import time as _time
                     _t0 = _time.time()
+                    transform = self._ego.get_transform()
                     poses, cot = self._model.predict(features)
                     if not getattr(self, "_logged_first", False):
                         print(f"[autovla] first inference ok: {_time.time()-_t0:.2f}s poses={None if poses is None else tuple(poses.shape)}", flush=True)
                         self._logged_first = True
                     self._last_poses = poses
+                    self._trajectory_origin = (transform.location.x, transform.location.y, math.radians(transform.rotation.yaw))
                     self._last_inference_tick = self._tick
                     self._last_command = command
                     self.last_step_info = {"command": command, "cot": str(cot)[:200]}

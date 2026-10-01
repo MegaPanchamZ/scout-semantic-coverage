@@ -2353,6 +2353,8 @@ def build_inventory(
                     "dota_rule": dota_rule_for(hazard.dota_ancestor) if hazard.dota_ancestor else None,
                     "dota_formula": dota_formula_for(hazard.dota_ancestor) if hazard.dota_ancestor else None,
                     "required_predicates": hazard.required_predicates,
+                    "temporal_order": [["oncoming", "same_lane"]] if hazard.name == "oncoming_cut_in" else [],
+                    "persistence_seconds": [["stationary", 0.5]] if hazard.name == "other: ahead_or_waiting" else [],
                 }
                 for hazard in hazard_definitions
             ],

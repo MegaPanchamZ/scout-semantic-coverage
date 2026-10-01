@@ -10,6 +10,7 @@ class CollisionEvent:
     actor_id: int
     actor_type: str
     intensity: float
+    injected_actor: bool = False
 
 
 @dataclass(slots=True)

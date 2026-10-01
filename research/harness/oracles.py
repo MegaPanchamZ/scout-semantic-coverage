@@ -62,6 +62,7 @@ class SafetyOracle:
 class CollisionOracle:
     def __init__(self) -> None:
         self.events: list[CollisionEvent] = []
+        self.injected_actor_ids: set[int] = set()
         self._sensor: Any | None = None
 
     def attach(self, world: Any, ego_vehicle: Any) -> Any:
@@ -79,6 +80,7 @@ class CollisionOracle:
                     actor_id=other_actor.id,
                     actor_type=other_actor.type_id,
                     intensity=float(intensity),
+                    injected_actor=other_actor.id in weak_self.injected_actor_ids,
                 )
             )
 

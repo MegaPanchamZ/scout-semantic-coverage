@@ -602,3 +602,86 @@ def test_semantic_engine_run_accumulates_suite_gap_closure(tmp_path, monkeypatch
         "stationary(ego)": 0,
     }
     assert rows[-1]["engine_cov_v"] == pytest.approx(1.0)
+
+
+def test_resume_matches_uninterrupted_candidate_sequence(tmp_path, monkeypatch):
+    base_spec = _write_base_spec(tmp_path)
+    oracle_path = _write_oracle(tmp_path)
+    _install_stub_evaluator(monkeypatch, stream_factory=lambda payload: [_stationary_tick(0, with_pedestrian=True)])
+    complete = tmp_path / "complete"
+    resumed = tmp_path / "resumed"
+    _run_main(monkeypatch, complete, base_spec, policy="semantic", engine=True, oracle=oracle_path, evals=6)
+    _run_main(monkeypatch, resumed, base_spec, policy="semantic", engine=True, oracle=oracle_path, evals=2)
+    _run_main(monkeypatch, resumed, base_spec, policy="semantic", engine=True, oracle=oracle_path, evals=6)
+    assert _read_rows(complete) == _read_rows(resumed)
+
+
+def test_legacy_checkpoint_is_rejected(tmp_path, monkeypatch):
+    base_spec = _write_base_spec(tmp_path)
+    output = tmp_path / "old"
+    output.mkdir()
+    (output / "rows.jsonl").write_text('{"eval_index": 0}\n')
+    _install_stub_evaluator(monkeypatch, stream_factory=None)
+    with pytest.raises(SystemExit):
+        _run_main(monkeypatch, output, base_spec, policy="semantic", engine=False)
+
+
+def test_each_candidate_has_a_nominal_pair(tmp_path, monkeypatch):
+    base_spec = _write_base_spec(tmp_path)
+    oracle_path = _write_oracle(tmp_path)
+    _install_stub_evaluator(monkeypatch, stream_factory=lambda payload: [_stationary_tick(0, with_pedestrian=True)])
+    output = tmp_path / "paired"
+    monkeypatch.setattr(sys, "argv", ["policy_search.py", "--policy", "semantic", "--base-spec", str(base_spec),
+                                    "--route-label", "dry-route", "--output-dir", str(output), "--evals", "2", "--paired-controls",
+                                    "--engine-metrics", "--oracle", str(oracle_path)])
+    policy_search.main()
+    rows = _read_rows(output)
+    assert len(rows) == 2
+    assert all(row["paired_control"]["engine_error"] is None for row in rows)
+    assert [row["execution_seed"] for row in rows] == [13, 14]
+
+
+@pytest.mark.parametrize("lead_available", [True, False])
+def test_hazard_campaign_changes_template_when_target_is_covered(tmp_path, monkeypatch, lead_available):
+    base_spec = _write_base_spec(tmp_path)
+    crossing = json.loads(base_spec.read_text())
+    crossing["controller_params"].update({
+        "spawn_transform": {"location": {"x": 10., "y": 5., "z": 1.}, "rotation": {"yaw": 0.}},
+        "route_anchor_location": {"x": 10., "y": 0., "z": 1.},
+        "destination_location": {"x": 10., "y": -5., "z": 1.},
+    })
+    base_spec.write_text(json.dumps(crossing))
+    lead = json.loads(base_spec.read_text())
+    lead["controller"] = "lead_vehicle_braking"
+    lead["controller_params"]["route_polyline"] = [[0., 0.], [100., 0.]]
+    if lead_available:
+        base_spec.with_name(base_spec.stem + "_lead_braking.json").write_text(json.dumps(lead))
+    oracle_path = _write_oracle(tmp_path)
+    lead_target = "hazard(other: ahead_or_waiting)"
+    crossing_target = "hazard(pedestrian_in_path)"
+    monkeypatch.setattr(policy_search, "_mapped_hazard_universe", lambda oracle: {lead_target, crossing_target})
+    _install_stub_evaluator(monkeypatch, stream_factory=None)
+
+    def observe(self, directory, index):
+        witnessed = {lead_target} if index == 0 and lead_available else {crossing_target}
+        new = witnessed - self.suite_covered
+        self.suite_covered.update(witnessed)
+        for sig in new:
+            self.first_uncover[sig] = index
+        return {"engine_run_obligations": sorted(witnessed), "engine_first_uncover": dict(self.first_uncover),
+                "engine_new_obligations": len(new), "engine_run_covered_count": len(witnessed)}
+
+    monkeypatch.setattr(policy_search.EngineCoverageState, "observe_stream", observe)
+    output = tmp_path / "hazards"
+    monkeypatch.setattr(sys, "argv", ["policy_search.py", "--policy", "semantic", "--base-spec", str(base_spec),
+                                    "--route-label", "dry-route", "--output-dir", str(output), "--evals", "3",
+                                    "--hazard-search", "--engine-metrics", "--oracle", str(oracle_path)])
+    policy_search.main()
+    rows = _read_rows(output)
+    if lead_available:
+        assert [r["hazard_target"] for r in rows] == [lead_target, crossing_target, None]
+        assert rows[0]["template"] == "lead_vehicle_braking"
+        assert rows[1]["template"] == "pedestrian_crossing"
+    else:
+        assert [r["hazard_target"] for r in rows] == [crossing_target, None, None]
+        assert all(r["template"] == "pedestrian_crossing" for r in rows)

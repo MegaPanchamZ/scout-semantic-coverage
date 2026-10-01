@@ -54,8 +54,8 @@ def load_world(client: Any, town: str, load_timeout_seconds: float = 60.0) -> An
 
 
 def apply_world_settings(world: Any, synchronous_mode: bool, fixed_delta_seconds: float) -> Any:
+    original = world.get_settings()
     settings = world.get_settings()
-    original = settings
     settings.synchronous_mode = synchronous_mode
     settings.fixed_delta_seconds = fixed_delta_seconds if synchronous_mode else None
     _retry(lambda: world.apply_settings(settings), attempts=5, sleep_seconds=2.0)

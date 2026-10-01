@@ -43,6 +43,7 @@ Every evaluation appends one JSON row to ``rows.jsonl`` so runs can resume.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -82,7 +83,7 @@ from research.harness.search_space import (  # noqa: E402
 DIAGNOSTICS_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_inter_session_diagnostics.py"
 SHAKEDOWN_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_shakedown.py"
 DEFAULT_PYTHON = WORKSPACE_ROOT / "research" / ".venv" / "bin" / "python"
-DEFAULT_CARLA_ROOT = Path("/mnt/DevDrive/carla-0.9.16")
+DEFAULT_CARLA_ROOT = Path(os.environ.get("CARLA_ROOT", "/mnt/DevDrive/carla-0.9.16"))
 DEFAULT_OBLIGATIONS = [
     "stationary(ego)",
     "in_front_of(pedestrian,ego)",
@@ -91,6 +92,33 @@ DEFAULT_OBLIGATIONS = [
     "colliding(ego,pedestrian)",
 ]
 POLICIES = ("random", "lsa", "kmnc", "semantic")
+PROTOCOL_VERSION = "scout-search-v2"
+
+
+def _validate_protocol(args: argparse.Namespace, rows_path: Path, hazard_payloads: dict) -> None:
+    """Do not mix corrected search/observer/ADS behavior with archived rows."""
+    def digest(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest() if path is not None and path.is_file() else None
+
+    protocol = {
+        "version": PROTOCOL_VERSION, "policy": args.policy, "seed": args.seed,
+        "agent_kind": args.agent_kind, "pcla_agent": args.pcla_agent,
+        "agent_repo": str(args.agent_repo_path), "agent_config": str(args.agent_config),
+        "max_ticks": args.max_ticks, "control": args.control,
+        "paired_controls": args.paired_controls,
+        "engine_metrics": args.engine_metrics, "search_space": _build_search_space(args).signature(),
+        "hazard_search": args.hazard_search, "stall_limit": args.hazard_stall_limit,
+        "base_spec": digest(args.base_spec), "oracle": digest(args.oracle),
+        "coverage_profile": digest(args.coverage_profile),
+        "hazard_specs": hazard_payloads,
+    }
+    path = args.output_dir / "campaign_protocol.json"
+    if rows_path.exists() and rows_path.stat().st_size:
+        if not path.exists() or _load_json(path) != protocol:
+            raise ValueError("Incompatible campaign checkpoint. Use a new --output-dir; archived results must not be resumed with the corrected protocol.")
+    elif path.exists() and _load_json(path) != protocol:
+        raise ValueError("Output directory belongs to another campaign configuration; use a new --output-dir.")
+    _write_json(path, protocol)
 
 
 def _port_open(port: int) -> bool:
@@ -128,18 +156,6 @@ def _is_carla_process(entry: Path) -> bool:
     return os.path.basename(exe) == "CarlaUE4-Linux-Shipping"
 
 
-def _kill_all_carla() -> None:
-    """SIGKILL every CARLA server process; used when a server wedges mid-evaluation."""
-    for entry in Path("/proc").iterdir():
-        if not entry.name.isdigit() or not _is_carla_process(entry):
-            continue
-        try:
-            os.kill(int(entry.name), signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
-    time.sleep(3.0)
-
-
 def _kill_carla_on_port(port: int) -> None:
     """SIGKILL any CARLA server bound to ``port`` and wait for the port to close."""
     for entry in Path("/proc").iterdir():
@@ -149,7 +165,7 @@ def _kill_carla_on_port(port: int) -> None:
             cmdline = (entry / "cmdline").read_bytes().replace(b"\0", b" ").decode(errors="ignore")
         except (FileNotFoundError, PermissionError, ProcessLookupError):
             continue
-        if f"carla-rpc-port={port}" in cmdline:
+        if f"-carla-rpc-port={port}" in cmdline.split():
             try:
                 os.kill(int(entry.name), signal.SIGKILL)
             except (ProcessLookupError, PermissionError):
@@ -312,6 +328,7 @@ class EngineCoverageState:
         self.suite_covered.update(run_covered)
 
         metrics = {
+            "engine_run_obligations": sorted(run_covered),
             "engine_new_obligations": len(new_obligations),
             "engine_run_covered_count": len(run_covered),
             "engine_uncovered_count": self.mapped_total - len(self.suite_covered),
@@ -353,19 +370,28 @@ class PolicyState:
         self.best_values: dict[str, float] | None = None
         self.best_fitness: float = float("-inf")
         self.best_tiebreak: float = float("-inf")
+        self.best_witnesses: set[str] | None = None
 
     def observe(
         self,
         values: dict[str, float] | None,
         fitness: float | None,
         tiebreak: float | None = None,
+        *,
+        run_obligations: set[str] | None = None,
+        covered_before: set[str] | None = None,
     ) -> None:
         if not values or fitness is None:
             return
+        if self.policy == "semantic" and run_obligations is not None and covered_before is not None:
+            if self.best_witnesses is not None:
+                self.best_fitness = float(len(self.best_witnesses - covered_before))
+            fitness = float(len(run_obligations - covered_before))
         if tiebreak is None:
             if fitness > self.best_fitness:
                 self.best_fitness = fitness
                 self.best_values = dict(values)
+                self.best_witnesses = set(run_obligations) if run_obligations is not None else None
             return
         if fitness > self.best_fitness or (
             fitness == self.best_fitness and tiebreak > self.best_tiebreak
@@ -373,6 +399,7 @@ class PolicyState:
             self.best_fitness = fitness
             self.best_tiebreak = tiebreak
             self.best_values = dict(values)
+            self.best_witnesses = set(run_obligations) if run_obligations is not None else None
 
     def next_candidate(self, rng: random.Random, seen: set[tuple]) -> SearchCandidate:
         if self.policy == "random" or self.best_values is None or rng.random() < 0.25:
@@ -490,6 +517,8 @@ def _row_from_run(run_payload: dict, duration: float) -> dict:
         "collision_count": run_payload.get("collision_count"),
         "terminated_by_collision": bool(run_payload.get("terminated_by_collision")),
         "collision_actors": sorted({str(c.get("actor_type")) for c in collisions if c.get("actor_type")}),
+        "collision_events": collisions,
+        "injected_actor_contact": any(c.get("injected_actor") is True for c in collisions),
         "coverage_status": coverage.get("status"),
         "coverage_kmnc": _as_float(coverage.get("kmnc")),
         "coverage_lsa_max": _as_float(coverage.get("lsa_max")),
@@ -541,6 +570,9 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
         str(port),
         "--agent-kind",
         args.agent_kind,
+        "--reload-world",
+        "--seed",
+        str(getattr(args, "execution_seed", args.seed)),
         "--max-ticks",
         str(args.max_ticks),
         "--output-dir",
@@ -570,6 +602,7 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
             command.extend(["--agent-config", str(args.agent_config)])
 
     env = os.environ.copy()
+    env["PYTHONHASHSEED"] = str(getattr(args, "execution_seed", args.seed))
     if args.cuda_visible_devices is not None:
         env["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
 
@@ -579,7 +612,7 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
         try:
             _ensure_server(args, port)
         except Exception as exc:  # noqa: BLE001 - retry once, then record
-            _kill_all_carla()
+            _kill_carla_on_port(port)
             last_error = f"server unavailable on port {port}: {exc!r}"
             continue
         try:
@@ -593,7 +626,7 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
                 timeout=args.eval_timeout_seconds,
             )
         except subprocess.TimeoutExpired:
-            _kill_all_carla()
+            _kill_carla_on_port(port)
             last_error = f"evaluation timed out after {args.eval_timeout_seconds}s (attempt {attempt + 1})"
             continue
         duration = time.time() - started
@@ -607,7 +640,7 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
                 row["run_error"] = completed.stderr[-2000:]
             return row
         last_error = (completed.stderr or completed.stdout)[-2000:]
-        _kill_all_carla()
+        _kill_carla_on_port(port)
     return _failure_row(time.time() - started, last_error)
 
 
@@ -736,6 +769,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--agent-kind", default="pcla")
     parser.add_argument("--pcla-agent", default="if_if")
+    parser.add_argument("--hazard-stall-limit", type=int, default=12,
+                        help="Skip a hazard target after this many attempts without a credit.")
     parser.add_argument("--hazard-search", action="store_true",
                         help="Hazard-obligation-specific search: per-template parameter spaces with an obligation scheduler.")
     parser.add_argument("--agent-repo-path", type=Path, default=None,
@@ -750,6 +785,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cuda-visible-devices", default=None)
     parser.add_argument("--obligations", nargs="*", default=None)
     parser.add_argument("--control", action="store_true", help="Run no-adversary controls instead of search.")
+    parser.add_argument("--paired-controls", action="store_true", help="Execute and archive a fresh-world no-adversary control for every candidate; control episodes are additional to --evals.")
     parser.add_argument(
         "--oracle",
         type=Path,
@@ -788,12 +824,20 @@ class _HazardPolicyState:
     def __init__(self, policy: str) -> None:
         self.policy = policy
         self.elites: dict[str, tuple[float, float, dict]] = {}  # template -> (fitness, tiebreak, candidate)
+        self.targets: dict[str, str | None] = {}
 
-    def next_candidate(self, rng: random.Random, template_name: str) -> dict:
+    def set_target(self, template_name: str, target: str | None) -> None:
+        if self.policy == "semantic" and self.targets.get(template_name) != target:
+            self.elites.pop(template_name, None)
+        self.targets[template_name] = target
+
+    def next_candidate(self, rng: random.Random, template_name: str, target: str | None = None) -> dict:
         template = HAZARD_TEMPLATES[template_name]
+        self.set_target(template_name, target)
         if self.policy == "random" or template_name not in self.elites:
             return template.space.sample(rng)
         return template.space.mutate(self.elites[template_name][2], rng)
+
 
     def observe(self, template_name: str, candidate: dict, fitness: float | None, tiebreak: float | None) -> None:
         if fitness is None:
@@ -802,6 +846,15 @@ class _HazardPolicyState:
         current = self.elites.get(template_name)
         if current is None or (fitness, tie) > (current[0], current[1]):
             self.elites[template_name] = (float(fitness), float(tie), dict(candidate))
+
+def _target_progress(oracle: Oracle, target: str | None, row: dict) -> tuple[float, float]:
+    """Reward the active obligation, with its constituent witnesses as guidance."""
+    witnessed = set(row.get("engine_run_obligations") or [])
+    obligation = next((o for o in oracle.obligations if o.signature == target), None)
+    if obligation is None:
+        return 0.0, 0.0
+    supporting = {o.signature for o in oracle.obligations if o.predicate in obligation.required_predicates and o.node_types and o.node_types[0] in obligation.node_types}
+    return float(target in witnessed), float(len(witnessed & supporting))
 
 
 def _mapped_hazard_universe(oracle: object) -> set[str]:
@@ -819,10 +872,25 @@ def _mapped_hazard_universe(oracle: object) -> set[str]:
     return universe
 
 
-def _pick_target(scheduler: ObligationScheduler, covered: set[str], universe: set[str]) -> tuple[str | None, str]:
+def _pick_target(
+    scheduler: ObligationScheduler,
+    covered: set[str],
+    universe: set[str],
+    attempts: dict[str, int] | None = None,
+    stall_limit: int = 12,
+) -> tuple[str | None, str]:
+    """Pick the highest-priority uncovered obligation.
+
+    Targets attempted ``stall_limit`` times without being credited are skipped
+    so the search advances across obligations instead of stalling on one that
+    the available templates/observer cannot realise.
+    """
     uncovered = universe - covered
+    if attempts:
+        attempted = {sig for sig, n in attempts.items() if n >= stall_limit}
+        uncovered -= attempted
     scheduler.uncovered = set(uncovered)
-    scheduler.observe(set())
+    scheduler.observe(covered)
     target = scheduler.current
     if target is None:
         return None, "pedestrian_crossing"
@@ -834,6 +902,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.engine_metrics and args.oracle is None:
         parser.error("--engine-metrics requires --oracle PATH")
+    if args.hazard_search and not args.engine_metrics:
+        parser.error("--hazard-search requires --engine-metrics and --oracle")
+    if args.paired_controls and args.mode != "server":
+        parser.error("--paired-controls requires --mode server")
     args.base_spec = args.base_spec if args.base_spec.is_absolute() else (WORKSPACE_ROOT / args.base_spec).resolve()
     args.output_dir = args.output_dir if args.output_dir.is_absolute() else (WORKSPACE_ROOT / args.output_dir).resolve()
     args.coverage_profile = args.coverage_profile if args.coverage_profile.is_absolute() else (WORKSPACE_ROOT / args.coverage_profile).resolve()
@@ -858,6 +930,7 @@ def main() -> None:
     hazard_universe: set[str] = set()
     hazard_state: _HazardPolicyState | None = None
     hazard_scheduler: ObligationScheduler | None = None
+    hazard_target_attempts: dict[str, int] = {}
     if args.hazard_search:
         hazard_payloads["pedestrian_crossing"] = base_payload
         lead_spec = args.base_spec.with_name(args.base_spec.stem + "_lead_braking.json")
@@ -867,34 +940,51 @@ def main() -> None:
             print(json.dumps({"hazard_search_note": f"lead-braking spec missing for {args.base_spec.stem}; crossing template only"}))
         if engine_state is not None:
             hazard_universe = _mapped_hazard_universe(engine_state.oracle)
+            hazard_universe = {sig for sig in hazard_universe if ObligationScheduler(set()).template_for(sig) in hazard_payloads}
         hazard_state = _HazardPolicyState(args.policy)
         hazard_scheduler = ObligationScheduler(uncovered=set(hazard_universe))
+
+    try:
+        _validate_protocol(args, rows_path, hazard_payloads)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     run_evaluation = _run_evaluation_server if args.mode == "server" else _run_evaluation_diagnostics
     seen, done_count = _load_done(rows_path, space)
     rng = random.Random(args.seed)
     state = PolicyState(args.policy, space)
     for row in _iter_rows(rows_path):
+        if row.get("rng_state"):
+            version, internal, gaussian = row["rng_state"]
+            rng.setstate((version, tuple(internal), gaussian))
         previous = _values_from_row(space, row)
         state.observe(
             previous.to_dict() if previous is not None else None,
             _semantic_fitness(row, args.policy, engine_active=engine_active),
             _semantic_tiebreak(row, args.policy, engine_active=engine_active),
+            run_obligations=set(row.get("engine_run_obligations") or []) if engine_active else None,
+            covered_before=set(engine_state.suite_covered) if engine_state is not None else None,
         )
         if engine_state is not None:
             engine_state.restore_from_row(row)
     if args.hazard_search and hazard_state is not None:
         for row in _iter_rows(rows_path):
+            if row.get("hazard_target"):
+                hazard_target_attempts[str(row["hazard_target"])] = hazard_target_attempts.get(str(row["hazard_target"]), 0) + 1
             template = row.get("template")
             candidate = row.get("candidate")
             if not template or not isinstance(candidate, dict):
                 continue
-            hazard_state.observe(
-                str(template),
-                candidate,
-                _semantic_fitness(row, args.policy, engine_active=engine_active),
-                _semantic_tiebreak(row, args.policy, engine_active=engine_active),
-            )
+            seen.add((str(template), json.dumps(candidate, sort_keys=True)))
+            hazard_state.set_target(str(template), row.get("hazard_target"))
+            if hazard_scheduler is not None:
+                hazard_scheduler.current = row.get("hazard_target")
+            if args.policy == "semantic" and engine_state is not None:
+                fitness, tiebreak = _target_progress(engine_state.oracle, row.get("hazard_target"), row)
+            else:
+                fitness = _semantic_fitness(row, args.policy, engine_active=engine_active)
+                tiebreak = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
+            hazard_state.observe(str(template), candidate, fitness, tiebreak)
 
     if not args.control and args.base_spec.exists() and not obligations:
         obligations = list(DEFAULT_OBLIGATIONS)
@@ -909,15 +999,26 @@ def main() -> None:
             payload = None
             if args.hazard_search and hazard_state is not None and hazard_scheduler is not None:
                 covered = set(engine_state.suite_covered) if engine_state is not None else set()
-                target, template_name = _pick_target(hazard_scheduler, covered, hazard_universe)
+                target, template_name = _pick_target(
+                    hazard_scheduler, covered, hazard_universe,
+                    attempts=hazard_target_attempts, stall_limit=args.hazard_stall_limit,
+                )
+                if target is None:
+                    template_name = sorted(hazard_payloads)[index % len(hazard_payloads)]
+                if target is not None:
+                    hazard_target_attempts[target] = hazard_target_attempts.get(target, 0) + 1
                 template = HAZARD_TEMPLATES.get(template_name, HAZARD_TEMPLATES["pedestrian_crossing"])
                 if template.name not in hazard_payloads:
-                    template = HAZARD_TEMPLATES["pedestrian_crossing"]
-                candidate_dict = hazard_state.next_candidate(rng, template.name)
+                    raise RuntimeError(f"No executable base specification for target {target}: {template.name}")
+                candidate_dict = hazard_state.next_candidate(rng, template.name, target)
                 key = (template.name, json.dumps(candidate_dict, sort_keys=True))
-                if key in seen:
+                for _ in range(64):
+                    if key not in seen:
+                        break
                     candidate_dict = template.space.mutate(candidate_dict, rng)
                     key = (template.name, json.dumps(candidate_dict, sort_keys=True))
+                else:
+                    raise RuntimeError(f"Could not produce a unique candidate for {template.name}")
                 seen.add(key)
                 payload = template.apply(hazard_payloads[template.name], candidate_dict)
                 _inject_obligations(payload, obligations)
@@ -972,15 +1073,28 @@ def main() -> None:
 
         work_dir = args.output_dir / "evaluations" / candidate_id
         port = args.server_port if args.mode == "server" else args.server_port + index
+        args.execution_seed = args.seed + index
+        if args.paired_controls and not args.control:
+            nominal_dir = work_dir / "paired_control"
+            nominal = run_evaluation(args=args, spec_payload=_strip_adversary(payload), candidate_id=candidate_id + "-nominal", work_dir=nominal_dir, port=port)
+            if engine_state is not None:
+                nominal.update(EngineCoverageState(engine_state.oracle).observe_stream(nominal_dir / "semantic", index))
+            row["paired_control"] = nominal
         row.update(run_evaluation(args=args, spec_payload=payload, candidate_id=candidate_id, work_dir=work_dir, port=port))
-        if engine_state is not None and not args.control:
+        row["execution_seed"] = args.execution_seed
+        covered_before = set(engine_state.suite_covered) if engine_state is not None else None
+        if engine_state is not None:
             row.update(engine_state.observe_stream(work_dir / "semantic", index))
+        row["rng_state"] = rng.getstate()
+        row["protocol_version"] = PROTOCOL_VERSION
         with rows_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row) + "\n")
         if not args.control:
             fitness_value = _semantic_fitness(row, args.policy, engine_active=engine_active)
             tiebreak_value = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
             if args.hazard_search and hazard_state is not None and row.get("template"):
+                if args.policy == "semantic" and engine_state is not None:
+                    fitness_value, tiebreak_value = _target_progress(engine_state.oracle, row.get("hazard_target"), row)
                 hazard_state.observe(
                     str(row.get("template")),
                     dict(row.get("candidate") or {}),
@@ -988,7 +1102,9 @@ def main() -> None:
                     tiebreak_value,
                 )
             else:
-                state.observe(evaluated_values, fitness_value, tiebreak_value)
+                state.observe(evaluated_values, fitness_value, tiebreak_value,
+                              run_obligations=set(row.get("engine_run_obligations") or []) if engine_active else None,
+                              covered_before=covered_before)
         print(json.dumps({
             "eval": row.get("eval_index"),
             "radius": row.get("radius"),

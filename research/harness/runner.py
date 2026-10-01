@@ -108,6 +108,15 @@ class HarnessRunner:
             self.config.harness.timeout_seconds,
         )
         world = load_world(client, scenario.town)
+        if self.config.harness.reload_world:
+            world = client.reload_world()
+        import random
+        import numpy as np
+        random.seed(self.config.harness.seed)
+        np.random.seed(self.config.harness.seed)
+        if self.config.agent.kind in {"autovla", "pcla", "leaderboard-module"}:
+            import torch
+            torch.manual_seed(self.config.harness.seed)
         original_settings = apply_world_settings(
             world,
             self.config.harness.synchronous_mode,
@@ -164,6 +173,7 @@ class HarnessRunner:
                 }
             )
             scenario_controller.setup(context)
+            collision_oracle.injected_actor_ids = {actor.id for actor in scenario_controller.spawned_actors}
             actors.extend(scenario_controller.spawned_actors)
 
             for observer in self.observers:

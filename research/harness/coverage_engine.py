@@ -560,6 +560,8 @@ class OracleObligation:
     grounding: str
     node_types: tuple[str, ...]
     required_predicates: tuple[str, ...] = ()
+    temporal_order: tuple[tuple[str, str], ...] = ()
+    persistence_seconds: tuple[tuple[str, float], ...] = ()
 
     @property
     def axis(self) -> str:
@@ -623,6 +625,8 @@ def load_oracle(path: str | Path) -> Oracle:
                         grounding=str(item.get("grounding") or definition.get("grounding") or ""),
                         node_types=node_types,
                         required_predicates=required,
+                        temporal_order=tuple(tuple(pair) for pair in definition.get("temporal_order", (("oncoming", "same_lane"),) if class_name == "oncoming_cut_in" else ())),
+                        persistence_seconds=tuple((str(pred), float(seconds)) for pred, seconds in definition.get("persistence_seconds", (("stationary", 0.5),) if class_name == "other: ahead_or_waiting" else ())),
                     )
                 )
             else:
@@ -896,7 +900,8 @@ class DerivationConfig:
     obstructing_distance_m: float = 18.0
     waiting_speed_mps: float = 0.3
     oncoming_yaw_delta_deg: float = 135.0
-    hazard_window_ticks: int = 6
+    hazard_window_ticks: int = 30  # three seconds at the campaign's 10 Hz
+    fixed_delta_seconds: float = 0.1
     crossing_corridor_half_width_m: float = 2.0
     crossing_min_actor_displacement_m: float = 0.5
     crossing_vehicle_heading_range_deg: tuple[float, float] = (30.0, 150.0)
@@ -1514,9 +1519,33 @@ def _hazard_witness(
             ticks_by_predicate[predicate] = ticks
         if not ticks_by_predicate:
             continue
-        window = _conjunction_window(ticks_by_predicate, config.hazard_window_ticks)
-        if window is None:
+        windows = []
+        for end in sorted({t for ticks in ticks_by_predicate.values() for t in ticks}):
+            start = end - config.hazard_window_ticks + 1 if config.hazard_window_ticks > 0 else min(min(ts) for ts in ticks_by_predicate.values())
+            selected = {pred: [t for t in ts if start <= t <= end] for pred, ts in ticks_by_predicate.items()}
+            if not all(selected.values()):
+                continue
+            if any(not selected.get(before) or not selected.get(after) or min(selected[before]) >= max(selected[after]) for before, after in obligation.temporal_order):
+                continue
+            persistent = True
+            for predicate, seconds in obligation.persistence_seconds:
+                ticks = selected.get(predicate, [])
+                run_start = previous = None
+                longest = 0
+                for tick in ticks:
+                    if previous is None or tick != previous + 1:
+                        run_start = tick
+                    longest = max(longest, tick - run_start)
+                    previous = tick
+                if longest * config.fixed_delta_seconds + 1e-9 < seconds:
+                    persistent = False
+                    break
+            if persistent:
+                windows.append(((start, end), selected))
+                break
+        if not windows:
             continue
+        window, ticks_by_predicate = windows[0]
         return {
             "witness_tick": window[1],
             "window": [window[0], window[1]],
@@ -1758,6 +1787,7 @@ def _evaluate(
             for type_id, count in derived.unmapped_aliases.items()
         },
         "hazard_window_ticks": config.hazard_window_ticks,
+        "derivation_config": config.to_dict(),
         "warning": warning,
     }
 
@@ -1852,7 +1882,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Mapped obligations: {report['mapped_obligation_count']}"
         f" / total: {report['total_obligation_count']}",
         f"- Hazard conjunction window: {report['hazard_window_ticks']} ticks"
-        " (oracle inventory has no explicit per-hazard window; 6 mirrors its 6-keyframe slices)",
+            f" ({report['derivation_config']['fixed_delta_seconds']} seconds per simulator tick)",
         "",
         "| Trace | Ticks | Scenario | Town | Facts |",
         "|---|---:|---|---|---:|",
@@ -1973,10 +2003,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", type=Path, default=None, help="Output path (defaults to stdout).")
     parser.add_argument("--format", choices=("json", "md"), default="json", help="Output format.")
+    parser.add_argument("--tick-seconds", type=float, default=0.1, help="Simulator duration of one trace tick; used for persistence constraints.")
     parser.add_argument(
         "--hazard-window",
         type=int,
-        default=6,
+        default=30,
         help="Ticks allowed between the first and last required predicate of a hazard conjunction (0 disables).",
     )
     parser.add_argument(
@@ -2015,6 +2046,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     config = DerivationConfig(
+        fixed_delta_seconds=args.tick_seconds,
         hazard_window_ticks=args.hazard_window,
         crossing_distance_m=args.crossing_distance_m,
     )
