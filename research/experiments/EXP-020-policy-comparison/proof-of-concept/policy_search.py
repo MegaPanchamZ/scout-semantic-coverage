@@ -188,7 +188,7 @@ def _ensure_server(args: argparse.Namespace, port: int) -> None:
     command = [
         str(launcher),
         f"-carla-rpc-port={port}",
-        "-quality-level=Low",
+        f"-quality-level={args.carla_quality}",
         "-RenderOffScreen",
         "-opengl",
         "-nosound",
@@ -666,6 +666,8 @@ def _run_evaluation_diagnostics(args: argparse.Namespace, spec_payload: dict, ca
         str(port),
         "--boot-timeout-seconds",
         str(args.boot_timeout_seconds),
+        "--quality-level",
+        str(args.carla_quality),
         "--output-dir",
         str(work_dir / "diagnostics"),
         "--run-output-dir",
@@ -783,6 +785,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--boot-timeout-seconds", type=float, default=240.0)
     parser.add_argument("--eval-timeout-seconds", type=float, default=300.0)
     parser.add_argument("--graphics-adapter", type=int, default=None)
+    parser.add_argument(
+        "--carla-quality",
+        default=os.environ.get("SCOUT_CARLA_QUALITY", "Epic"),
+        choices=("Low", "Medium", "High", "Epic"),
+        help="CARLA -quality-level used when booting the simulator "
+             "(default: $SCOUT_CARLA_QUALITY or Epic).",
+    )
     parser.add_argument("--cuda-visible-devices", default=None)
     parser.add_argument("--obligations", nargs="*", default=None)
     parser.add_argument("--control", action="store_true", help="Run no-adversary controls instead of search.")

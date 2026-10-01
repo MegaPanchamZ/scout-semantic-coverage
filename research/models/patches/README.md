@@ -19,6 +19,20 @@ They are applied in-place in the working copies; recorded here for reproducibili
      abort the interpreter during teardown after results are written. The
      runner exits explicitly (os._exit(0)) once artifacts are on disk.
 
+4. CARLA render quality (harness default changed to `Epic`).
+   - `research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_search.py`
+     hard-coded `-quality-level=Low` in the CARLA boot command. It is now
+     `--carla-quality` and threaded through the diagnostics path.
+   - `research/harness/{optimiser,run_inter_session_batch,run_inter_session_diagnostics}.py`
+     `--quality-level` likewise.
+   - Default is now `Epic`. Override per run with `--carla-quality`/`--quality-level`
+     or by exporting `SCOUT_CARLA_QUALITY` (e.g. `SCOUT_CARLA_QUALITY=Low`).
+   - Rationale: on a GPU-backed host the extra fidelity is nearly free — with the
+     AutoVLA camera rig (3x 800x450) an H100 renders ~9.7 sim-Hz at Epic vs ~12.2
+     at Low. Note: results captured at a different quality are not directly
+     comparable with the paper's Low-quality runs, so keep quality fixed within a
+     campaign.
+
 Config conversions and artifacts (not patches):
 - AutoVLA checkpoint converted from `AutoVLA_PDMS_89.ckpt` (Lightning, fp32,
   `autovla.vlm.` prefix, vision keys under `model.visual.*`, LLM keys under

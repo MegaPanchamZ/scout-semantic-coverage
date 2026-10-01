@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--label", default="restart-sessions")
     parser.add_argument("--resolution-x", type=int, default=800)
     parser.add_argument("--resolution-y", type=int, default=600)
-    parser.add_argument("--quality-level", default="Low")
+    parser.add_argument("--quality-level", default=os.environ.get("SCOUT_CARLA_QUALITY", "Epic"))
     parser.add_argument("--boot-timeout-seconds", type=float, default=60.0)
     return parser
 

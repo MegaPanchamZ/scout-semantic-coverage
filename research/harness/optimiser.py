@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -156,7 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--startup-hold-ticks", type=int, default=0)
     parser.add_argument("--resolution-x", type=int, default=800)
     parser.add_argument("--resolution-y", type=int, default=600)
-    parser.add_argument("--quality-level", default="Low")
+    parser.add_argument("--quality-level", default=os.environ.get("SCOUT_CARLA_QUALITY", "Epic"))
     parser.add_argument("--boot-timeout-seconds", type=float, default=60.0)
     return parser
 
