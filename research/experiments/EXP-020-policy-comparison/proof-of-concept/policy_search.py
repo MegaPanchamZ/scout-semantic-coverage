@@ -66,6 +66,11 @@ from research.harness.coverage_engine import (  # noqa: E402
     load_oracle,
     load_semantic_trace,
 )
+from research.harness.hazard_search import (  # noqa: E402
+    HAZARD_TEMPLATES,
+    OBLIGATION_TEMPLATE_MAP,
+    ObligationScheduler,
+)
 from research.harness.search_space import (  # noqa: E402
     SearchCandidate,
     SearchSpace,
@@ -731,6 +736,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--agent-kind", default="pcla")
     parser.add_argument("--pcla-agent", default="if_if")
+    parser.add_argument("--hazard-search", action="store_true",
+                        help="Hazard-obligation-specific search: per-template parameter spaces with an obligation scheduler.")
     parser.add_argument("--agent-repo-path", type=Path, default=None,
                         help="Agent repository path for external kinds (e.g., autovla).")
     parser.add_argument("--agent-config", type=Path, default=None,
@@ -775,6 +782,53 @@ def _build_search_space(args: argparse.Namespace) -> SearchSpace:
     )
 
 
+class _HazardPolicyState:
+    """Per-template elitist selection for the hazard-scheduled search."""
+
+    def __init__(self, policy: str) -> None:
+        self.policy = policy
+        self.elites: dict[str, tuple[float, float, dict]] = {}  # template -> (fitness, tiebreak, candidate)
+
+    def next_candidate(self, rng: random.Random, template_name: str) -> dict:
+        template = HAZARD_TEMPLATES[template_name]
+        if self.policy == "random" or template_name not in self.elites:
+            return template.space.sample(rng)
+        return template.space.mutate(self.elites[template_name][2], rng)
+
+    def observe(self, template_name: str, candidate: dict, fitness: float | None, tiebreak: float | None) -> None:
+        if fitness is None:
+            return
+        tie = tiebreak if tiebreak is not None else 0.0
+        current = self.elites.get(template_name)
+        if current is None or (fitness, tie) > (current[0], current[1]):
+            self.elites[template_name] = (float(fitness), float(tie), dict(candidate))
+
+
+def _mapped_hazard_universe(oracle: object) -> set[str]:
+    """Obligations the hazard-specific search knows how to target."""
+    universe: set[str] = set()
+    ungrounded = set(getattr(oracle, "ungrounded", {}) or {})
+    for obligation in getattr(oracle, "obligations", []):
+        signature = str(obligation.signature)
+        stripped = signature[len("hazard("):-1] if signature.startswith("hazard(") else signature
+        predicate = str(getattr(obligation, "predicate", ""))
+        if predicate in ungrounded:
+            continue
+        if signature in OBLIGATION_TEMPLATE_MAP or stripped in OBLIGATION_TEMPLATE_MAP:
+            universe.add(signature)
+    return universe
+
+
+def _pick_target(scheduler: ObligationScheduler, covered: set[str], universe: set[str]) -> tuple[str | None, str]:
+    uncovered = universe - covered
+    scheduler.uncovered = set(uncovered)
+    scheduler.observe(set())
+    target = scheduler.current
+    if target is None:
+        return None, "pedestrian_crossing"
+    return target, scheduler.template_for(target)
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -800,6 +854,22 @@ def main() -> None:
     base_payload = json.loads(args.base_spec.read_text(encoding="utf-8"))
     space = _build_search_space(args)
 
+    hazard_payloads: dict[str, dict] = {}
+    hazard_universe: set[str] = set()
+    hazard_state: _HazardPolicyState | None = None
+    hazard_scheduler: ObligationScheduler | None = None
+    if args.hazard_search:
+        hazard_payloads["pedestrian_crossing"] = base_payload
+        lead_spec = args.base_spec.with_name(args.base_spec.stem + "_lead_braking.json")
+        if lead_spec.exists():
+            hazard_payloads["lead_vehicle_braking"] = json.loads(lead_spec.read_text(encoding="utf-8"))
+        else:
+            print(json.dumps({"hazard_search_note": f"lead-braking spec missing for {args.base_spec.stem}; crossing template only"}))
+        if engine_state is not None:
+            hazard_universe = _mapped_hazard_universe(engine_state.oracle)
+        hazard_state = _HazardPolicyState(args.policy)
+        hazard_scheduler = ObligationScheduler(uncovered=set(hazard_universe))
+
     run_evaluation = _run_evaluation_server if args.mode == "server" else _run_evaluation_diagnostics
     seen, done_count = _load_done(rows_path, space)
     rng = random.Random(args.seed)
@@ -813,6 +883,18 @@ def main() -> None:
         )
         if engine_state is not None:
             engine_state.restore_from_row(row)
+    if args.hazard_search and hazard_state is not None:
+        for row in _iter_rows(rows_path):
+            template = row.get("template")
+            candidate = row.get("candidate")
+            if not template or not isinstance(candidate, dict):
+                continue
+            hazard_state.observe(
+                str(template),
+                candidate,
+                _semantic_fitness(row, args.policy, engine_active=engine_active),
+                _semantic_tiebreak(row, args.policy, engine_active=engine_active),
+            )
 
     if not args.control and args.base_spec.exists() and not obligations:
         obligations = list(DEFAULT_OBLIGATIONS)
@@ -824,34 +906,69 @@ def main() -> None:
             payload = _strip_adversary(base_payload)
             row = {"policy": "control", "route": args.route_label, "eval_index": index}
         else:
-            candidate: SearchCandidate | None = None
-            if index == 0:
-                base_candidate = space.from_payload(base_payload, fill_missing=args.search_space != "legacy")
-                if base_candidate is not None and space.key(base_candidate) not in seen:
-                    candidate = base_candidate
-            if candidate is None:
-                candidate = state.next_candidate(rng, seen)
-            seen.add(space.key(candidate))
-            payload = space.apply_to_payload(base_payload, candidate)
-            _inject_obligations(payload, obligations)
-            payload["scenario_id"] = f"{base_payload.get('scenario_id', 'scenario')}-{args.policy}-{index:04d}"
-            payload["description"] = (
-                f"{base_payload.get('description', '')} Policy {args.policy} candidate {index} "
-                f"({space.name}: {json.dumps(candidate.to_dict(), sort_keys=True)})."
-            )
-            candidate_id = f"{args.policy}-{index:04d}"
-            evaluated_values = {name: float(value) for name, value in candidate.to_dict().items()}
-            row = {
-                "policy": args.policy,
-                "route": args.route_label,
-                "eval_index": index,
-                "candidate": candidate.to_dict(),
-                "space": space.name,
-                "space_signature": space.signature(),
-            }
-            radius = candidate.values.get("trigger_radius_m")
-            if radius is not None:
-                row["radius"] = radius
+            payload = None
+            if args.hazard_search and hazard_state is not None and hazard_scheduler is not None:
+                covered = set(engine_state.suite_covered) if engine_state is not None else set()
+                target, template_name = _pick_target(hazard_scheduler, covered, hazard_universe)
+                template = HAZARD_TEMPLATES.get(template_name, HAZARD_TEMPLATES["pedestrian_crossing"])
+                if template.name not in hazard_payloads:
+                    template = HAZARD_TEMPLATES["pedestrian_crossing"]
+                candidate_dict = hazard_state.next_candidate(rng, template.name)
+                key = (template.name, json.dumps(candidate_dict, sort_keys=True))
+                if key in seen:
+                    candidate_dict = template.space.mutate(candidate_dict, rng)
+                    key = (template.name, json.dumps(candidate_dict, sort_keys=True))
+                seen.add(key)
+                payload = template.apply(hazard_payloads[template.name], candidate_dict)
+                _inject_obligations(payload, obligations)
+                payload["scenario_id"] = f"{base_payload.get('scenario_id', 'scenario')}-{args.policy}-{index:04d}"
+                payload["description"] = (
+                    f"{base_payload.get('description', '')} Hazard search target {target} via {template.name}; "
+                    f"candidate {index} ({json.dumps(candidate_dict, sort_keys=True)})."
+                )
+                candidate_id = f"{args.policy}-{index:04d}"
+                evaluated_values = dict(candidate_dict)
+                row = {
+                    "policy": args.policy,
+                    "route": args.route_label,
+                    "eval_index": index,
+                    "candidate": dict(candidate_dict),
+                    "space": f"hazard:{template.name}",
+                    "space_signature": f"hazard-{template.name}-v1",
+                    "template": template.name,
+                    "hazard_target": target,
+                }
+                if "trigger_radius_m" in candidate_dict:
+                    row["radius"] = candidate_dict["trigger_radius_m"]
+            if payload is None:
+                candidate: SearchCandidate | None = None
+                if index == 0:
+                    base_candidate = space.from_payload(base_payload, fill_missing=args.search_space != "legacy")
+                    if base_candidate is not None and space.key(base_candidate) not in seen:
+                        candidate = base_candidate
+                if candidate is None:
+                    candidate = state.next_candidate(rng, seen)
+                seen.add(space.key(candidate))
+                payload = space.apply_to_payload(base_payload, candidate)
+                _inject_obligations(payload, obligations)
+                payload["scenario_id"] = f"{base_payload.get('scenario_id', 'scenario')}-{args.policy}-{index:04d}"
+                payload["description"] = (
+                    f"{base_payload.get('description', '')} Policy {args.policy} candidate {index} "
+                    f"({space.name}: {json.dumps(candidate.to_dict(), sort_keys=True)})."
+                )
+                candidate_id = f"{args.policy}-{index:04d}"
+                evaluated_values = {name: float(value) for name, value in candidate.to_dict().items()}
+                row = {
+                    "policy": args.policy,
+                    "route": args.route_label,
+                    "eval_index": index,
+                    "candidate": candidate.to_dict(),
+                    "space": space.name,
+                    "space_signature": space.signature(),
+                }
+                radius = candidate.values.get("trigger_radius_m")
+                if radius is not None:
+                    row["radius"] = radius
 
         work_dir = args.output_dir / "evaluations" / candidate_id
         port = args.server_port if args.mode == "server" else args.server_port + index
@@ -861,11 +978,17 @@ def main() -> None:
         with rows_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row) + "\n")
         if not args.control:
-            state.observe(
-                evaluated_values,
-                _semantic_fitness(row, args.policy, engine_active=engine_active),
-                _semantic_tiebreak(row, args.policy, engine_active=engine_active),
-            )
+            fitness_value = _semantic_fitness(row, args.policy, engine_active=engine_active)
+            tiebreak_value = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
+            if args.hazard_search and hazard_state is not None and row.get("template"):
+                hazard_state.observe(
+                    str(row.get("template")),
+                    dict(row.get("candidate") or {}),
+                    fitness_value,
+                    tiebreak_value,
+                )
+            else:
+                state.observe(evaluated_values, fitness_value, tiebreak_value)
         print(json.dumps({
             "eval": row.get("eval_index"),
             "radius": row.get("radius"),

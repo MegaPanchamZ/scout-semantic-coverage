@@ -100,10 +100,12 @@ LSA and KMNC policies mutate around the elite under their respective fitness
 values. Near-duplicate candidates are rejected before execution. The five
 dimensions and bounds are: trigger radius $[5,35]$\,m, actor speed
 $[0.8,4.0]$\,m/s, lateral staging offset $[1,14]$\,m, longitudinal staging
-offset $[-10,30]$\,m, and trigger tick $[10,400]$ at 10\,Hz. The evaluated
-scenario family implements the pedestrian-crossing hazard; per-template
-parameter spaces for the remaining templates are not yet implemented and are
-stated as a limitation in the main paper.
+offset $[-10,30]$\,m, and trigger tick $[10,400]$ at 10\,Hz. Each hazard template carries its own parameter space
+(pedestrian crossing: trigger radius, walker speed, lateral and longitudinal
+staging offsets, trigger tick; lead-vehicle braking: lead gap, trigger radius,
+brake strength, pre-brake throttle), and an obligation scheduler selects the
+highest-priority uncovered obligation, routes it to its template, and advances
+to the next uncovered obligation once the current one is realised.
 
 \paragraph{Coverage engine.}
 The engine matches observer-emitted facts against the inventory through a
