@@ -106,6 +106,7 @@ def _validate_protocol(args: argparse.Namespace, rows_path: Path, hazard_payload
         "agent_repo": str(args.agent_repo_path), "agent_config": str(args.agent_config),
         "max_ticks": args.max_ticks, "control": args.control,
         "paired_controls": args.paired_controls,
+        "frozen_base": args.frozen_base,
         "engine_metrics": args.engine_metrics, "search_space": _build_search_space(args).signature(),
         "hazard_search": args.hazard_search, "stall_limit": args.hazard_stall_limit,
         "base_spec": digest(args.base_spec), "oracle": digest(args.oracle),
@@ -786,6 +787,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--obligations", nargs="*", default=None)
     parser.add_argument("--control", action="store_true", help="Run no-adversary controls instead of search.")
     parser.add_argument("--paired-controls", action="store_true", help="Execute and archive a fresh-world no-adversary control for every candidate; control episodes are additional to --evals.")
+    parser.add_argument("--frozen-base", action="store_true", help="Repeat the base scenario unchanged (no search); used for frozen-seed ADS validation.")
     parser.add_argument(
         "--oracle",
         type=Path,
@@ -986,12 +988,23 @@ def main() -> None:
                 tiebreak = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
             hazard_state.observe(str(template), candidate, fitness, tiebreak)
 
-    if not args.control and args.base_spec.exists() and not obligations:
+    if not args.control and not args.frozen_base and args.base_spec.exists() and not obligations:
         obligations = list(DEFAULT_OBLIGATIONS)
 
     for index in range(done_count, args.evals):
         evaluated_values: dict[str, float] | None = None
-        if args.control:
+        if args.frozen_base:
+            payload = _load_json(args.base_spec)
+            candidate_id = f"frozen-{index:04d}"
+            row = {
+                "policy": "frozen",
+                "route": args.route_label,
+                "eval_index": index,
+                "space": "frozen",
+                "space_signature": "frozen-base-v1",
+                "candidate": {},
+            }
+        elif args.control:
             candidate_id = f"control-{index:04d}"
             payload = _strip_adversary(base_payload)
             row = {"policy": "control", "route": args.route_label, "eval_index": index}

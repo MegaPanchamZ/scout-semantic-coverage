@@ -1,0 +1,85 @@
+{
+  "scenario_id": "town05_spawn239_goal100_threshold_crossing_benign_seed1",
+  "town": "Town05_Opt",
+  "weather_preset": "ClearNoon",
+  "ego_spawn_index": 239,
+  "goal_spawn_index": 100,
+  "description": "Benign seed 1: Generated threshold-triggered walker crossing on Town05_Opt near route waypoint 5; walker begins crossing when ego enters a 8.0 m trigger zone. Walker starts 1.90 m further back, triggers at 26.6 m and crosses at 1.60 m/s (seed 1).",
+  "max_ticks": 500,
+  "npc_vehicle_count": 0,
+  "walker_count": 1,
+  "controller": "threshold_crossing_adversary",
+  "controller_params": {
+    "adversary_kind": "walker",
+    "blueprint_filter": "walker.pedestrian.*",
+    "speed": 1.6,
+    "trigger_radius_m": 26.65,
+    "trigger_location": {
+      "x": 57.36038589477539,
+      "y": -204.19619750976562,
+      "z": 0.0
+    },
+    "spawn_transform": {
+      "location": {
+        "x": 48.271,
+        "y": -208.678,
+        "z": 0.800000011920929
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": 179.757080078125,
+        "roll": 0.0
+      }
+    },
+    "destination_location": {
+      "x": 48.331275939941406,
+      "y": -194.5328369140625,
+      "z": 0.800000011920929
+    },
+    "subgraph_type": "junction-crossing",
+    "route_anchor_index": 5,
+    "route_anchor_location": {
+      "x": 48.3053092956543,
+      "y": -200.65777587890625,
+      "z": 0.0
+    },
+    "route_anchor_is_junction": true
+  },
+  "generator_metadata": {
+    "generated_at": "2026-09-29T09:02:47.446173+00:00",
+    "town": "Town05_Opt",
+    "weather_preset": "ClearNoon",
+    "route_waypoint_count": 244,
+    "route_length_m": 503.57685601711273,
+    "junction_anchor_index": 5,
+    "junction_anchor_location": {
+      "x": 48.3053092956543,
+      "y": -200.65777587890625,
+      "z": 0.0
+    },
+    "trigger_location": {
+      "x": 57.36038589477539,
+      "y": -204.19619750976562,
+      "z": 0.0
+    },
+    "ego_spawn_location": {
+      "x": 69.34160614013672,
+      "y": -207.7470245361328,
+      "z": 0.29999998211860657
+    },
+    "goal_spawn_location": {
+      "x": -136.2187042236328,
+      "y": 144.07208251953125,
+      "z": 0.5
+    }
+  },
+  "benign_seed": 1,
+  "benign": true,
+  "generation": {
+    "tool": "generate_benign_seeds.py",
+    "seed": 1,
+    "trigger_radius_m": 26.65,
+    "walker_speed_mps": 1.6,
+    "spawn_back_off_m": 1.895
+  }
+}

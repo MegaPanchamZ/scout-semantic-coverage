@@ -114,3 +114,16 @@ simulator port/GPU with another concurrently running campaign.
 The supplied aggregation computes route-level comparisons within one campaign
 root. Old manuscript numbers, RQ1 manual validation, RQ4 observer map studies,
 and stronger causal/statistical conclusions require additional empirical work.
+
+## Benign seed scenarios and frozen-seed validation
+
+All experiments start from benign randomised seed scenarios (per review).
+Generate them with `research/scripts/generate_benign_seeds.py` (writes
+`<route>_benign_seed{0,1,2}.json` and the shared `benign_seeds.json` seed set).
+Workers default to `_benign_seed0` (`SCOUT_BASE_SUFFIX` overrides).
+
+Before full runs, validate one frozen benign seed:
+`bash research/scripts/validate_frozen_seed.sh <spec.json> 20` - 20 identical
+runs, no search; warns if the collision rate is >= 40%.
+
+Cluster runs use one worker per GPU (`A..H` for 8 GPUs).

@@ -1,0 +1,94 @@
+{
+  "seed_set": [
+    0,
+    1,
+    2
+  ],
+  "routes": {
+    "town01_spawn0_goal82": [
+      "town01_spawn0_goal82_benign_seed0.json",
+      "town01_spawn0_goal82_benign_seed1.json",
+      "town01_spawn0_goal82_benign_seed2.json"
+    ],
+    "town01_spawn115_goal206": [
+      "town01_spawn115_goal206_benign_seed0.json",
+      "town01_spawn115_goal206_benign_seed1.json",
+      "town01_spawn115_goal206_benign_seed2.json"
+    ],
+    "town01_spawn195_goal197": [
+      "town01_spawn195_goal197_benign_seed0.json",
+      "town01_spawn195_goal197_benign_seed1.json",
+      "town01_spawn195_goal197_benign_seed2.json"
+    ],
+    "town01_spawn55_goal154": [
+      "town01_spawn55_goal154_benign_seed0.json",
+      "town01_spawn55_goal154_benign_seed1.json",
+      "town01_spawn55_goal154_benign_seed2.json"
+    ],
+    "town01_spawn68_goal218": [
+      "town01_spawn68_goal218_benign_seed0.json",
+      "town01_spawn68_goal218_benign_seed1.json",
+      "town01_spawn68_goal218_benign_seed2.json"
+    ],
+    "town01_spawn82_goal200": [
+      "town01_spawn82_goal200_benign_seed0.json",
+      "town01_spawn82_goal200_benign_seed1.json",
+      "town01_spawn82_goal200_benign_seed2.json"
+    ],
+    "town02_spawn40_goal33": [
+      "town02_spawn40_goal33_benign_seed0.json",
+      "town02_spawn40_goal33_benign_seed1.json",
+      "town02_spawn40_goal33_benign_seed2.json"
+    ],
+    "town02_spawn98_goal35": [
+      "town02_spawn98_goal35_benign_seed0.json",
+      "town02_spawn98_goal35_benign_seed1.json",
+      "town02_spawn98_goal35_benign_seed2.json"
+    ],
+    "town03_spawn121_goal2": [
+      "town03_spawn121_goal2_benign_seed0.json",
+      "town03_spawn121_goal2_benign_seed1.json",
+      "town03_spawn121_goal2_benign_seed2.json"
+    ],
+    "town03_spawn125_goal223": [
+      "town03_spawn125_goal223_benign_seed0.json",
+      "town03_spawn125_goal223_benign_seed1.json",
+      "town03_spawn125_goal223_benign_seed2.json"
+    ],
+    "town03_spawn162_goal235": [
+      "town03_spawn162_goal235_benign_seed0.json",
+      "town03_spawn162_goal235_benign_seed1.json",
+      "town03_spawn162_goal235_benign_seed2.json"
+    ],
+    "town05_spawn0_goal124": [
+      "town05_spawn0_goal124_benign_seed0.json",
+      "town05_spawn0_goal124_benign_seed1.json",
+      "town05_spawn0_goal124_benign_seed2.json"
+    ],
+    "town05_spawn218_goal257": [
+      "town05_spawn218_goal257_benign_seed0.json",
+      "town05_spawn218_goal257_benign_seed1.json",
+      "town05_spawn218_goal257_benign_seed2.json"
+    ],
+    "town05_spawn239_goal100": [
+      "town05_spawn239_goal100_benign_seed0.json",
+      "town05_spawn239_goal100_benign_seed1.json",
+      "town05_spawn239_goal100_benign_seed2.json"
+    ],
+    "town10hd_spawn0_goal44": [
+      "town10hd_spawn0_goal44_benign_seed0.json",
+      "town10hd_spawn0_goal44_benign_seed1.json",
+      "town10hd_spawn0_goal44_benign_seed2.json"
+    ],
+    "town10hd_spawn1_goal63": [
+      "town10hd_spawn1_goal63_benign_seed0.json",
+      "town10hd_spawn1_goal63_benign_seed1.json",
+      "town10hd_spawn1_goal63_benign_seed2.json"
+    ],
+    "town10hd_spawn43_goal100": [
+      "town10hd_spawn43_goal100_benign_seed0.json",
+      "town10hd_spawn43_goal100_benign_seed1.json",
+      "town10hd_spawn43_goal100_benign_seed2.json"
+    ]
+  }
+}

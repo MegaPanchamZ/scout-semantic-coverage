@@ -32,19 +32,29 @@ CONTROLS=8
 
 case "$WORKER" in
   A) PORT=2000; CUDA=0
-     ROUTES="town01_spawn0_goal82 town01_spawn55_goal154 town01_spawn68_goal218 town03_spawn121_goal2" ;;
+     ROUTES="town01_spawn0_goal82 town01_spawn55_goal154" ;;
   B) PORT=2010; CUDA=1
-     ROUTES="town03_spawn125_goal223 town05_spawn0_goal124 town05_spawn218_goal257 town05_spawn239_goal100" ;;
-  C) PORT=2020; CUDA=0
-     ROUTES="town10hd_spawn0_goal44 town10hd_spawn1_goal63 town10hd_spawn43_goal100" ;;
-  D) PORT=2030; CUDA=1
-     ROUTES="town01_spawn82_goal200 town01_spawn115_goal206 town01_spawn195_goal197" ;;
-  *) echo "usage: run_fse_hazard_workers.sh A|B|C|D" >&2; exit 2 ;;
+     ROUTES="town01_spawn68_goal218 town03_spawn121_goal2" ;;
+  C) PORT=2020; CUDA=2
+     ROUTES="town03_spawn125_goal223 town05_spawn0_goal124" ;;
+  D) PORT=2030; CUDA=3
+     ROUTES="town05_spawn218_goal257 town05_spawn239_goal100" ;;
+  E) PORT=2040; CUDA=4
+     ROUTES="town10hd_spawn0_goal44 town10hd_spawn1_goal63" ;;
+  F) PORT=2050; CUDA=5
+     ROUTES="town10hd_spawn43_goal100 town01_spawn82_goal200" ;;
+  G) PORT=2060; CUDA=6
+     ROUTES="town01_spawn115_goal206" ;;
+  H) PORT=2070; CUDA=7
+     ROUTES="town01_spawn195_goal197" ;;
+  *) echo "usage: run_fse_hazard_workers.sh A..H" >&2; exit 2 ;;
 esac
 
 mkdir -p "$OUT"
 
 for route in $ROUTES; do
+  SPEC="$BASE/${route}${SCOUT_BASE_SUFFIX:-_benign_seed0}.json"
+  [ -f "$SPEC" ] || SPEC="$BASE/${route}.json"
   for policy in random lsa kmnc semantic; do
     echo "=== $(date -Is) worker ${WORKER} route ${route} policy ${policy} ==="
     CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
@@ -52,7 +62,7 @@ for route in $ROUTES; do
       --seed "${SCOUT_SEED:-13}" --paired-controls \
       --search-space campaign \
       --hazard-search \
-      --base-spec "$BASE/${route}.json" \
+      --base-spec "$SPEC" \
       --route-label "$route" \
       --output-dir "$OUT/${route}/${policy}" \
       --evals "$EVALS" \
@@ -65,7 +75,7 @@ for route in $ROUTES; do
   CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
     --policy random --control --python-executable "$PY" \
     --seed "${SCOUT_SEED:-13}" \
-    --base-spec "$BASE/${route}.json" \
+    --base-spec "$SPEC" \
     --route-label "$route" \
     --output-dir "$OUT/${route}/control" \
     --evals "$CONTROLS" \

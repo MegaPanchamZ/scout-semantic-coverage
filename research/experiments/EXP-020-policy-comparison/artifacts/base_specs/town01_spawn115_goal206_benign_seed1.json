@@ -1,0 +1,57 @@
+{
+  "scenario_id": "town01_spawn115_goal206_threshold_crossing_benign_seed1",
+  "town": "Town01",
+  "weather_preset": "ClearNoon",
+  "ego_spawn_index": 115,
+  "goal_spawn_index": 206,
+  "description": "Benign seed 1: Generated threshold-triggered walker crossing on Town01 near route waypoint 19 (route town01_spawn115_goal206, 124.1 m); walker begins crossing when ego enters a 20.0 m trigger zone. Walker starts 0.62 m further back, triggers at 31.4 m and crosses at 1.86 m/s (seed 1).",
+  "max_ticks": 500,
+  "npc_vehicle_count": 0,
+  "walker_count": 1,
+  "controller": "threshold_crossing_adversary",
+  "controller_params": {
+    "adversary_kind": "walker",
+    "blueprint_filter": "walker.pedestrian.*",
+    "speed": 1.86,
+    "trigger_radius_m": 31.44,
+    "trigger_location": {
+      "x": 112.98975372314453,
+      "y": 55.49724578857422,
+      "z": 0.0
+    },
+    "spawn_transform": {
+      "location": {
+        "x": 101.389,
+        "y": 47.876,
+        "z": 0.800000011920929
+      },
+      "rotation": {
+        "pitch": 360.0,
+        "yaw": 179.99301147460938,
+        "roll": 0.0
+      }
+    },
+    "destination_location": {
+      "x": 101.39060974121094,
+      "y": 62.49866485595703,
+      "z": 0.800000011920929
+    },
+    "subgraph_type": "junction-crossing",
+    "route_anchor_index": 19,
+    "route_anchor_location": {
+      "x": 101.38975524902344,
+      "y": 55.49866485595703,
+      "z": 0.0
+    },
+    "route_anchor_is_junction": true
+  },
+  "benign_seed": 1,
+  "benign": true,
+  "generation": {
+    "tool": "generate_benign_seeds.py",
+    "seed": 1,
+    "trigger_radius_m": 31.44,
+    "walker_speed_mps": 1.86,
+    "spawn_back_off_m": 0.623
+  }
+}
