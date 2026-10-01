@@ -914,12 +914,7 @@ def _pick_target(
     if attempts:
         attempted = {sig for sig, n in attempts.items() if n >= stall_limit}
         uncovered -= attempted
-    scheduler.uncovered = set(uncovered)
-    scheduler.observe(covered)
-    target = scheduler.current
-    if target is None:
-        return None, "pedestrian_crossing"
-    return target, scheduler.template_for(target)
+    return scheduler.select(uncovered, covered)
 
 
 def main() -> None:

@@ -245,12 +245,20 @@ class ObligationScheduler:
             self.current = self.next_target()
         return previous != self.current
 
-    def select(self, uncovered: set[str]) -> tuple[str | None, HazardTemplate]:
+    def select(self, uncovered: set[str], covered: set[str]) -> tuple[str | None, str]:
+        """Return the current target obligation and its template name.
+
+        ``uncovered`` is the remaining obligation set (the caller removes
+        credited/stalled targets before calling); ``covered`` is what the latest
+        run credited and drives advancement and history. This is the single
+        selection path used by ``policy_search._pick_target`` -- it must be given
+        the real covered set so a credited target advances.
+        """
         self.uncovered = set(uncovered)
-        self.observe(set())
+        self.observe(covered)
         if self.current is None:
-            return None, HAZARD_TEMPLATES[DEFAULT_TEMPLATE]
-        return self.current, HAZARD_TEMPLATES[self.template_for(self.current)]
+            return None, DEFAULT_TEMPLATE
+        return self.current, self.template_for(self.current)
 
 
 # ---------------------------------------------------------------------------
