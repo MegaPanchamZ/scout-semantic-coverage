@@ -28,6 +28,14 @@ ORACLE=research/experiments/EXP-018-nuscenes-oracle-inventory/artifacts/oracle_i
 PROFILE="${SCOUT_PROFILE:-research/logs/coverage/autovla-nominal-profile-v2.joblib}"
 AUTOVLA_REPO="${SCOUT_AUTOVLA_REPO:-research/models/AutoVLA}"
 AUTOVLA_CKPT="${SCOUT_AUTOVLA_CHECKPOINT:-$AUTOVLA_REPO/checkpoints/AutoVLA-hf}"
+# Optional remote serving backend (torch is the default, in-process path).
+AUTOVLA_ARGS=()
+if [ -n "${SCOUT_AUTOVLA_BACKEND:-}" ]; then
+  AUTOVLA_ARGS+=(--autovla-backend "$SCOUT_AUTOVLA_BACKEND")
+  if [ -n "${SCOUT_AUTOVLA_ENDPOINT:-}" ]; then
+    AUTOVLA_ARGS+=(--autovla-endpoint "$SCOUT_AUTOVLA_ENDPOINT")
+  fi
+fi
 EVALS=20
 CONTROLS=8
 
@@ -59,6 +67,7 @@ for route in $ROUTES; do
       --agent-kind autovla \
       --agent-repo-path "$AUTOVLA_REPO" \
       --agent-config "$AUTOVLA_CKPT" \
+      ${AUTOVLA_ARGS[@]+"${AUTOVLA_ARGS[@]}"} \
       --coverage-profile "$PROFILE" \
       --engine-metrics --oracle "$ORACLE" \
       --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
@@ -76,6 +85,7 @@ for route in $ROUTES; do
     --agent-kind autovla \
     --agent-repo-path "$AUTOVLA_REPO" \
     --agent-config "$AUTOVLA_CKPT" \
+    ${AUTOVLA_ARGS[@]+"${AUTOVLA_ARGS[@]}"} \
     --coverage-profile "$PROFILE" \
     --engine-metrics --oracle "$ORACLE" \
     --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"

@@ -30,6 +30,11 @@ class AgentConfig:
     checkpoint_path: Path | None = None
     config_path: Path | None = None
     init_kwargs: dict[str, Any] = field(default_factory=dict)
+    # VLA serving backend selection (currently AutoVLA): torch | http | openai
+    autovla_backend: str = "torch"
+    autovla_endpoint: str | None = None
+    autovla_timeout: float = 60.0
+    autovla_model: str = "autovla"
 
 
 @dataclass(slots=True)

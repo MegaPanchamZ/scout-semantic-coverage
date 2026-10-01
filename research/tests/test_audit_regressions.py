@@ -131,6 +131,9 @@ def test_autovla_uses_simulator_acceleration(adapter):
     adapter._ego.get_acceleration = lambda: SimpleNamespace(x=2.5, y=0.)
     adapter._ego.get_velocity = lambda: SimpleNamespace(x=5., y=0., z=0.)
     seen = []
-    adapter._model = SimpleNamespace(predict=lambda features: (seen.append(features) or np.zeros((10, 3)), ""))
+    adapter._backend = SimpleNamespace(
+        name="fake",
+        plan=lambda features: (seen.append(features) or np.zeros((10, 3)), ""),
+    )
     adapter.run_step()
     assert seen[0]["vehicle_acceleration"] == [2.5, 0.]

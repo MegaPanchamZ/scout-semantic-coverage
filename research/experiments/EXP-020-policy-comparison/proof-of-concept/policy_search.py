@@ -601,6 +601,14 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
             command.extend(["--agent-repo-path", str(args.agent_repo_path)])
         if args.agent_config is not None:
             command.extend(["--agent-config", str(args.agent_config)])
+        if getattr(args, "autovla_backend", "torch") != "torch":
+            command.extend(["--autovla-backend", str(args.autovla_backend)])
+            if args.autovla_endpoint:
+                command.extend(["--autovla-endpoint", str(args.autovla_endpoint)])
+            command.extend([
+                "--autovla-timeout", str(args.autovla_timeout),
+                "--autovla-model", str(args.autovla_model),
+            ])
 
     env = os.environ.copy()
     env["PYTHONHASHSEED"] = str(getattr(args, "execution_seed", args.seed))
@@ -780,6 +788,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Agent repository path for external kinds (e.g., autovla).")
     parser.add_argument("--agent-config", type=Path, default=None,
                         help="Agent config/checkpoint path for external kinds (e.g., autovla).")
+    parser.add_argument("--autovla-backend", default="torch", choices=["torch", "http", "openai"],
+                        help="AutoVLA serving stack passed through to run_shakedown.py.")
+    parser.add_argument("--autovla-endpoint", default=None,
+                        help="URL for remote AutoVLA backends (http: /plan server; openai: chat-completions).")
+    parser.add_argument("--autovla-timeout", type=float, default=60.0)
+    parser.add_argument("--autovla-model", default="autovla")
     parser.add_argument("--coverage-profile", type=Path, default=Path("research/logs/coverage/if-if-safe-prefix-profile.joblib"))
     parser.add_argument("--max-ticks", type=int, default=500)
     parser.add_argument("--boot-timeout-seconds", type=float, default=240.0)

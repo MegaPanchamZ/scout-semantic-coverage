@@ -20,6 +20,11 @@ from typing import Any
 
 import numpy as np
 
+from research.harness.model_backends import (
+    BackendUnavailable,
+    PlanBackend,
+    make_backend,
+)
 
 DEFAULT_REPO = pathlib.Path(__file__).resolve().parents[1] / "models" / "AutoVLA"
 DEFAULT_CHECKPOINT = DEFAULT_REPO / "checkpoints" / "AutoVLA-hf"
@@ -49,6 +54,7 @@ class AutoVlaAdapter:
         checkpoint_dir: pathlib.Path | None = None,
         device: str = "cuda",
         target_speed_mps: float = TARGET_SPEED_MPS,
+        backend: PlanBackend | None = None,
     ) -> None:
         self._world = world
         self._ego = ego_vehicle
@@ -56,28 +62,16 @@ class AutoVlaAdapter:
         self._device = device
         self._target_speed = target_speed_mps  # upper speed limit, never a forced cruise speed
         self._fixed_delta_seconds = float(world.get_settings().fixed_delta_seconds or 0.1)
-        repo = pathlib.Path(repo_path) if repo_path else DEFAULT_REPO
-        if str(repo) not in sys.path:
-            sys.path.insert(0, str(repo))
-        import torch  # noqa: E402
-        from models.autovla import AutoVLA  # noqa: E402
-
-        self._torch = torch
-        config = {
-            "model": {
-                "use_cot": False,
-                "pretrained_model_path": str(checkpoint_dir or DEFAULT_CHECKPOINT),
-                "train_vision_backbone": False,
-                "train_lm_backbone": True,
-                "codebook_cache_path": str(repo / "codebook_cache" / "agent_vocab.pkl"),
-                "trajectory": {"num_poses": 10, "interval_length": 0.5, "time_horizon": 5.0},
-                "tokens": {"action_start_id": 151665, "ignore_index": -100, "assistant_id": [151644, 77091]},
-                "video": {"min_pixels": 109760, "max_pixels": 109760},
-            },
-            "inference": {"sample": {"max_length": 2048, "temperature": 0.01, "top_k": 0, "top_p": 1.0}},
-        }
-        self._model = AutoVLA(config, inference=True, device=device)
-        self._model.eval()
+        # Serving stack: in-process torch (historical) or a remote HTTP server.
+        # The adapter is identical either way; only plan() differs.
+        if backend is None:
+            backend = make_backend(
+                "torch",
+                repo_path=repo_path,
+                checkpoint_dir=checkpoint_dir,
+                device=device,
+            )
+        self._backend = backend
 
         self._frame_dir = pathlib.Path(tempfile.mkdtemp(prefix="autovla-frames-"))
         self._cameras: dict[str, Any] = {}
@@ -247,9 +241,9 @@ class AutoVlaAdapter:
                     import time as _time
                     _t0 = _time.time()
                     transform = self._ego.get_transform()
-                    poses, cot = self._model.predict(features)
+                    poses, cot = self._backend.plan(features)
                     if not getattr(self, "_logged_first", False):
-                        print(f"[autovla] first inference ok: {_time.time()-_t0:.2f}s poses={None if poses is None else tuple(poses.shape)}", flush=True)
+                        print(f"[autovla] first inference ok ({self._backend.name}): {_time.time()-_t0:.2f}s poses={None if poses is None else tuple(np.shape(poses))}", flush=True)
                         self._logged_first = True
                     self._last_poses = poses
                     self._trajectory_origin = (transform.location.x, transform.location.y, math.radians(transform.rotation.yaw))
@@ -273,16 +267,30 @@ class AutoVlaAdapter:
 
     # ------------------------------------------------------- instrumentation hooks
     @property
+    def backend_name(self) -> str:
+        return self._backend.name
+
+    @property
     def torch_model(self):
-        return self._model.vlm
+        return self._backend.torch_model
 
     def inspect_loaded_model(self, max_modules: int = 24) -> dict:
+        if not getattr(self._backend, "supports_activation_hooks", False):
+            return {
+                "agent_name": "autovla",
+                "status": "unsupported-backend",
+                "torch_model_available": False,
+                "backend": self._backend.name,
+                "notes": "Remote serving backend exposes no in-process torch model; "
+                "activation-based coverage (KMNC/LSA) is unavailable.",
+            }
         model = self.torch_model
         leaves = [(n, m) for n, m in model.named_modules() if n and len(list(m.children())) == 0]
         return {
             "agent_name": "autovla",
             "status": "ok",
             "torch_model_available": True,
+            "backend": self._backend.name,
             "candidate_layers": [{"name": n, "module_type": type(m).__name__} for n, m in leaves[:max_modules]],
         }
 
@@ -297,6 +305,11 @@ class AutoVlaAdapter:
         return f"model.language_model.layers.{idx}", lm.layers[-1]
 
     def register_activation_hook(self, callback, layer_name: str | None = None) -> dict:
+        if not getattr(self._backend, "supports_activation_hooks", False):
+            raise BackendUnavailable(
+                "activation hooks require the in-process 'torch' backend "
+                f"(current backend: '{self._backend.name}')."
+            )
         name, module = self._resolve_target_module(layer_name)
         handle = module.register_forward_hook(callback)
         if not hasattr(self, "_hook_handles"):
@@ -324,3 +337,7 @@ class AutoVlaAdapter:
             except Exception:
                 pass
         self._cameras.clear()
+        try:
+            self._backend.close()
+        except Exception:
+            pass
