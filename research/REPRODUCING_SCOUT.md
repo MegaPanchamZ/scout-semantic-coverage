@@ -101,6 +101,17 @@ simulator port/GPU with another concurrently running campaign.
   is direct-contact evidence, not attribution of every failure to a hazard.
   Static collisions, nominal failures, observer witnesses, and injected-actor
   contacts must be inspected separately.
+- Safety is evaluated by named outcomes beyond collision (near collision /
+  low TTC, unsafe proximity, red-light and lane-departure violations, stuck or
+  incomplete routes, harsh/emergency braking). The schema-2 `safety_metrics`
+  are recorded live and classified by `research/harness/safety_outcomes.py`;
+  see [SAFETY_OUTCOMES.md](SAFETY_OUTCOMES.md) and
+  `research/scripts/safety_outcome_report.py`. The utility evaluation also
+  links obligations to issue types and measures time-to-first-issue per
+  independent run (mean/std across `seed-*` replicates, paired against the
+  baselines) via `research/scripts/safety_utility_report.py`. Legacy schema-1
+  logs carry only collision/goal evidence, so the new outcomes require a rerun
+  and must not be mixed with old rows.
 - The coverage engine preserves ordered cut-in events and a minimum 0.5 s
   stationary interval for waiting hazards. Its default window is 30 ticks
   at 10 Hz; `--tick-seconds` records another trace rate for persistence.

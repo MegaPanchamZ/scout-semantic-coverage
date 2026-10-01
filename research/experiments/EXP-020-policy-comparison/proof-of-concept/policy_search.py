@@ -72,6 +72,7 @@ from research.harness.hazard_search import (  # noqa: E402
     OBLIGATION_TEMPLATE_MAP,
     ObligationScheduler,
 )
+from research.harness.safety_outcomes import classify_run  # noqa: E402
 from research.harness.shared_suite import SharedSuiteStore  # noqa: E402
 from research.harness.search_space import (  # noqa: E402
     SearchCandidate,
@@ -534,6 +535,8 @@ def _row_from_run(run_payload: dict, duration: float) -> dict:
     semantic = metadata.get("semantic") or {}
     obligation_credit = semantic.get("obligation_credit") or {}
     collisions = run_payload.get("collisions") or []
+    safety = classify_run(run_payload)
+    safety_fields = {f"safety_{name}": value for name, value in safety.items() if name != "raw"}
     return {
         "duration_s": round(duration, 2),
         "ticks_executed": run_payload.get("ticks_executed"),
@@ -543,6 +546,9 @@ def _row_from_run(run_payload: dict, duration: float) -> dict:
         "collision_actors": sorted({str(c.get("actor_type")) for c in collisions if c.get("actor_type")}),
         "collision_events": collisions,
         "injected_actor_contact": any(c.get("injected_actor") is True for c in collisions),
+        "safety_metrics": run_payload.get("safety_metrics"),
+        "safety_raw": safety.get("raw"),
+        **safety_fields,
         "coverage_status": coverage.get("status"),
         "coverage_kmnc": _as_float(coverage.get("kmnc")),
         "coverage_lsa_max": _as_float(coverage.get("lsa_max")),

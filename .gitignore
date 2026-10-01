@@ -3,5 +3,9 @@
 **/.venv/
 research/logs/
 research/models/
+# Per-run evaluation outputs (PCLA/PCLA-IF frame dumps + episode meta).
+# These are large generated artifacts, not sources; regenerate them locally.
+eval/
+research/eval/
 .env
 .env.*

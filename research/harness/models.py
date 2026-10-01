@@ -15,10 +15,30 @@ class CollisionEvent:
 
 @dataclass(slots=True)
 class SafetyMetrics:
+    """Raw safety evidence recorded live by ``SafetyOracle`` for one episode.
+
+    Schema 2 keeps the original four fields and adds the signals needed to
+    evaluate unsafe behaviour beyond collision.  These are *evidence*, not
+    classified outcomes: the named outcomes and their thresholds live in
+    ``research/harness/safety_outcomes.py``.
+    """
+
+    schema_version: int = 2
     min_ttc: float = float('inf')
-    near_collisions: int = 0
-    stuck_frames: int = 0
+    near_collisions: int = 0  # rising-edge entries into the near-collision band
+    near_collision_ticks: int = 0
+    min_actor_distance_m: float = float('inf')
+    min_vehicle_distance_m: float = float('inf')
+    min_pedestrian_distance_m: float = float('inf')
+    red_light_violations: int = 0
     rule_violations: int = 0
+    lane_departure_events: int = 0
+    max_lane_offset_m: float = 0.0
+    max_stationary_streak_ticks: int = 0
+    stuck_frames: int = 0
+    max_deceleration_mps2: float = 0.0
+    harsh_braking_events: int = 0
+    emergency_manoeuvre_events: int = 0
 
 @dataclass(slots=True)
 class ScenarioSpec:

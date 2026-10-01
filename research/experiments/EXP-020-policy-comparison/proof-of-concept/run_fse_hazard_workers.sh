@@ -14,6 +14,13 @@
 
 set -u
 
+# Cap CPU thread pools per worker. The box reports 64 cores, and with several
+# CARLA servers + workers running, default 64-thread torch/BLAS pools thrash on
+# tiny tensors (Interfuser preprocessing measured ~200x slower at 64 threads).
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-4}"
+export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-4}"
+
 WORKER="${1:-}"
 if [ -z "$WORKER" ]; then
   echo "usage: run_fse_multimap.sh A or B" >&2
@@ -27,8 +34,8 @@ SEARCH=research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_se
 BASE=research/experiments/EXP-020-policy-comparison/artifacts/base_specs
 OUT="${SCOUT_OUTPUT_ROOT:-research/logs/fse_search_hazard_v2/seed-${SCOUT_SEED:-13}}"
 ORACLE=research/experiments/EXP-018-nuscenes-oracle-inventory/artifacts/oracle_inventory_v1.0-trainval.json
-EVALS=50
-CONTROLS=8
+EVALS="${SCOUT_EVALS:-50}"
+CONTROLS="${SCOUT_CONTROLS:-8}"
 
 case "$WORKER" in
   A) PORT=2000; CUDA=0
@@ -50,14 +57,19 @@ case "$WORKER" in
   *) echo "usage: run_fse_hazard_workers.sh A..H" >&2; exit 2 ;;
 esac
 
+GPU="${SCOUT_GPU:-$CUDA}"
+ROUTES="${SCOUT_ROUTES:-$ROUTES}"
+PORT="${SCOUT_PORT:-$PORT}"
+POLICIES="${SCOUT_POLICIES:-random lsa kmnc semantic}"
+
 mkdir -p "$OUT"
 
 for route in $ROUTES; do
   SPEC="$BASE/${route}${SCOUT_BASE_SUFFIX:-_benign_seed0}.json"
   [ -f "$SPEC" ] || SPEC="$BASE/${route}.json"
-  for policy in random lsa kmnc semantic; do
+  for policy in $POLICIES; do
     echo "=== $(date -Is) worker ${WORKER} route ${route} policy ${policy} ==="
-    CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
+    CUDA_VISIBLE_DEVICES="${GPU}" "$PY" "$SEARCH" \
       --policy "$policy" --python-executable "$PY" \
       --seed "${SCOUT_SEED:-13}" --paired-controls \
       --search-space campaign \
@@ -67,12 +79,13 @@ for route in $ROUTES; do
       --output-dir "$OUT/${route}/${policy}" \
       --evals "$EVALS" \
       --server-port "$PORT" \
+      --eval-timeout-seconds "${SCOUT_EVAL_TIMEOUT:-300}" \
       --max-ticks 500 \
       --engine-metrics --oracle "$ORACLE" \
-      --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
+      --cuda-visible-devices "$GPU" --graphics-adapter "$GPU"
   done
   echo "=== $(date -Is) worker ${WORKER} route ${route} controls ==="
-  CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
+  CUDA_VISIBLE_DEVICES="${GPU}" "$PY" "$SEARCH" \
     --policy random --control --python-executable "$PY" \
     --seed "${SCOUT_SEED:-13}" \
     --base-spec "$SPEC" \
@@ -80,9 +93,10 @@ for route in $ROUTES; do
     --output-dir "$OUT/${route}/control" \
     --evals "$CONTROLS" \
     --server-port "$PORT" \
+    --eval-timeout-seconds "${SCOUT_EVAL_TIMEOUT:-300}" \
     --max-ticks 500 \
     --engine-metrics --oracle "$ORACLE" \
-    --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
+    --cuda-visible-devices "$GPU" --graphics-adapter "$GPU"
 done
 
 echo "=== worker ${WORKER} DONE $(date -Is) ==="

@@ -123,7 +123,7 @@ class HarnessRunner:
             self.config.harness.fixed_delta_seconds,
         )
         collision_oracle = CollisionOracle()
-        safety_oracle = SafetyOracle()
+        safety_oracle = SafetyOracle(tick_seconds=self.config.harness.fixed_delta_seconds)
         scenario_controller = build_scenario_controller(scenario)
         actors: list[Any] = []
         reached_goal = False
@@ -197,7 +197,7 @@ class HarnessRunner:
                 ego_vehicle.apply_control(control)
                 world.tick()
                 ticks_executed = tick + 1
-                safety_oracle.tick(world, ego_vehicle)
+                safety_oracle.tick(world, ego_vehicle, goal_transform.location)
                 speed_mps = _speed_mps(ego_vehicle)
                 ego_location = ego_vehicle.get_location()
                 agent_step_info = (
@@ -217,6 +217,7 @@ class HarnessRunner:
                         "z": float(ego_location.z),
                     },
                     "agent_step": agent_step_info,
+                    "safety": safety_oracle.snapshot(),
                 }
                 scenario_controller.on_tick(tick, context)
 
