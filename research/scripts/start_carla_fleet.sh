@@ -16,9 +16,9 @@ set -u
 
 CARLA_DIR="${CARLA_DIR:-/opt/carla}"
 QUALITY="${QUALITY:-Epic}"
-WORKERS="${WORKERS:-A B C D E F}"
+WORKERS="${WORKERS:-A B}"
 CARLA_USER="${CARLA_USER:-carla}"
-LOG_DIR="${LOG_DIR:-/root/work}"
+LOG_DIR="${LOG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/logs}"
 VULKAN_ICD="${VULKAN_ICD:-/usr/share/vulkan/icd.d/nvidia_egl_icd.json}"
 
 port_for() {
@@ -60,7 +60,12 @@ port = int(sys.argv[1]); t0 = time.time()
 while time.time() - t0 < 170:
     try:
         c = carla.Client("127.0.0.1", port); c.set_timeout(5)
-        print(f"port {port} READY {c.get_world().get_map().name}", flush=True); break
+        w = c.get_world()
+        # park the idle server in synchronous mode so it renders nothing until
+        # an episode ticks it (async idle servers take the shared GPU)
+        s = w.get_settings(); s.synchronous_mode = True; s.fixed_delta_seconds = 0.1
+        w.apply_settings(s)
+        print(f"port {port} READY {w.get_map().name} (parked sync)", flush=True); break
     except Exception:
         time.sleep(3)
 else:

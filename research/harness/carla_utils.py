@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from pathlib import Path
 import time
 from typing import Any
@@ -63,6 +64,14 @@ def apply_world_settings(world: Any, synchronous_mode: bool, fixed_delta_seconds
 
 
 def restore_world_settings(world: Any, original_settings: Any) -> None:
+    # An idle server in asynchronous mode renders frames as fast as it can and
+    # takes the shared GPU from the servers that are running episodes (camera
+    # wait doubled with one idle neighbour). Leave it synchronous: with nothing
+    # ticking it, it renders nothing. SCOUT_IDLE_ASYNC=1 restores async mode.
+    if os.environ.get("SCOUT_IDLE_ASYNC") != "1":
+        original_settings.synchronous_mode = True
+        if not original_settings.fixed_delta_seconds:
+            original_settings.fixed_delta_seconds = 0.1
     _retry(lambda: world.apply_settings(original_settings), attempts=3, sleep_seconds=1.0)
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -9,7 +10,9 @@ from typing import Any
 class HarnessConfig:
     host: str = "127.0.0.1"
     port: int = 2000
-    timeout_seconds: float = 60.0
+    # CARLA RPC timeout; a loaded fleet (8 servers + 8 agents on one GPU) can
+    # stall a single tick past 60 s
+    timeout_seconds: float = float(os.environ.get("SCOUT_CARLA_TIMEOUT_S", "180"))
     traffic_manager_port: int = 8000
     synchronous_mode: bool = True
     fixed_delta_seconds: float = 0.1

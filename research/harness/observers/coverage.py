@@ -41,6 +41,16 @@ class CoverageObserver:
 
     def on_run_start(self, scenario: ScenarioSpec, context: dict[str, Any]) -> None:
         del scenario
+        # Per-tick scoring is one sample through scaler/PCA/KDE. A multi-threaded
+        # BLAS gains nothing there, and its spinning worker threads took CPU from
+        # the agent and the CARLA servers (a 2-server batch ran 49 s -> 37.5 s
+        # with BLAS at 1 thread).
+        try:
+            from threadpoolctl import threadpool_limits
+
+            self._blas_limits = threadpool_limits(limits=1, user_api="blas")
+        except ImportError:
+            pass
         self._status = "initializing"
         self._notes = []
         self._latest_trace = None
