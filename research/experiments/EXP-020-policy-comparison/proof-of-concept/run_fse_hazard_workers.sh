@@ -80,7 +80,7 @@ for route in $ROUTES; do
       --evals "$EVALS" \
       --server-port "$PORT" \
       --eval-timeout-seconds "${SCOUT_EVAL_TIMEOUT:-300}" \
-      --max-ticks 500 \
+      --max-ticks "${SCOUT_MAX_TICKS:-500}" \
       --engine-metrics --oracle "$ORACLE" \
       --cuda-visible-devices "$GPU" --graphics-adapter "$GPU"
   done
@@ -94,7 +94,7 @@ for route in $ROUTES; do
     --evals "$CONTROLS" \
     --server-port "$PORT" \
     --eval-timeout-seconds "${SCOUT_EVAL_TIMEOUT:-300}" \
-    --max-ticks 500 \
+    --max-ticks "${SCOUT_MAX_TICKS:-500}" \
     --engine-metrics --oracle "$ORACLE" \
     --cuda-visible-devices "$GPU" --graphics-adapter "$GPU"
 done

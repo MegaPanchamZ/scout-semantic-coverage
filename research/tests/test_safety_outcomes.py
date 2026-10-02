@@ -349,3 +349,16 @@ def test_policy_row_carries_safety_outcomes():
     assert row["safety_unsafe_proximity"] is True
     assert "unsafe_proximity" in row["safety_reasons"]
     assert row["safety_metrics"]["min_pedestrian_distance_m"] == 1.0
+
+
+def test_classify_crashed_run_is_invalid_not_unsafe():
+    for payload in (_payload(ticks_executed=None, reached_goal=False),
+                    _payload(run_error="CARLA server did not become ready", reached_goal=False)):
+        result = classify_run(payload)
+        assert result["valid"] is False
+        assert result["unsafe"] is False
+        assert result["route_incomplete"] is False
+
+
+def test_classify_completed_run_is_valid():
+    assert classify_run(_payload())["valid"] is True

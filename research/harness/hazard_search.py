@@ -1,6 +1,6 @@
 """Hazard-obligation-specific multi-parameter search for SCOUT.
 
-James's requirement: different hazard templates expose different parameter
+Design: different hazard templates expose different parameter
 spaces; the search optimises one uncovered obligation/template at a time and
 moves on once it is realised. This module provides:
 
@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import pathlib
 import random
 import sys
@@ -63,11 +64,12 @@ class TemplateSpace:
     def sample(self, rng: random.Random) -> dict[str, float]:
         return {d.name: d.sample(rng) for d in self.dims}
 
-    def mutate(self, candidate: dict[str, float], rng: random.Random) -> dict[str, float]:
+    def mutate(self, candidate: dict[str, float], rng: random.Random, scale: float = 1.0) -> dict[str, float]:
+        """Gaussian step around ``candidate``; ``scale`` multiplies every sigma."""
         out = {}
         for d in self.dims:
             base = float(candidate.get(d.name, d.default))
-            out[d.name] = d.clamp(rng.gauss(base, d.sigma))
+            out[d.name] = d.clamp(rng.gauss(base, d.sigma * scale))
         return out
 
     def defaults(self) -> dict[str, float]:
@@ -114,6 +116,10 @@ def apply_crossing(spec: dict[str, Any], params: dict[str, float]) -> dict[str, 
     return space.apply_to_payload(spec, candidate)
 
 
+# Seconds the lead holds its brake before driving off again.
+LEAD_RELEASE_S = 4.0
+
+
 def apply_lead_braking(spec: dict[str, Any], params: dict[str, float]) -> dict[str, Any]:
     """Lead-braking template: move the lead along the baked route, set trigger/brake."""
     out = json.loads(json.dumps(spec))  # deep copy
@@ -130,6 +136,10 @@ def apply_lead_braking(spec: dict[str, Any], params: dict[str, float]) -> dict[s
     cp["trigger_radius_m"] = float(params.get("trigger_radius_m", 8.0))
     cp["post_trigger_brake"] = float(params.get("post_trigger_brake", 1.0))
     cp["pre_brake_throttle"] = float(params.get("pre_brake_throttle", 0.3))
+    # The lead drives off after braking so the hazard is a braking event, not
+    # a permanent roadblock (SCOUT_LEAD_RELEASE_S=none restores the old hold).
+    release = os.environ.get("SCOUT_LEAD_RELEASE_S", str(LEAD_RELEASE_S))
+    cp["release_after_s"] = None if release.lower() in ("", "none") else float(release)
     return out
 
 
@@ -259,6 +269,77 @@ class ObligationScheduler:
         if self.current is None:
             return None, DEFAULT_TEMPLATE
         return self.current, self.template_for(self.current)
+
+
+# ---------------------------------------------------------------------------
+# Stage-2 exploitation and adaptive mutation
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ExploitTracker:
+    """Keep searching a covered obligation while its runs get more critical.
+
+    Stage 1 covers the obligation. Stage 2 (this tracker) holds the scheduler on
+    it until ``patience`` consecutive evaluations fail to raise the best
+    criticality, or ``cap`` evaluations have been spent after coverage. Only
+    then does the scheduler advance to the next gap.
+    """
+
+    patience: int = 3
+    cap: int = 8
+    target: str | None = None
+    best: float = 0.0
+    stale: int = 0
+    spent: int = 0
+
+    def observe(self, target: str | None, covered: bool, criticality: float) -> None:
+        if target is None or self.patience <= 0:
+            return
+        if target != self.target:
+            self.target, self.best, self.stale, self.spent = target, 0.0, 0, 0
+        if not covered:
+            return
+        self.spent += 1
+        if self.spent == 1 or criticality > self.best + 1e-9:  # first witness sets the baseline
+            self.best, self.stale = criticality, 0
+        else:
+            self.stale += 1
+
+    def holding(self, target: str | None) -> bool:
+        """True while ``target`` is covered but still worth exploiting."""
+        if target is None or target != self.target or self.patience <= 0 or self.spent == 0:
+            return False
+        return self.stale < self.patience and self.spent < self.cap
+
+
+@dataclass
+class AdaptiveMutation:
+    """Per-elite step-size control: shrink on improvement, widen on stagnation.
+
+    ``scale`` multiplies the template sigmas. After ``restart_after`` stale
+    evaluations the caller should draw a fresh uniform sample instead
+    (``should_restart``), and ``epsilon`` mixes in uniform exploration.
+    """
+
+    scale: float = 1.0
+    stale: int = 0
+    shrink: float = 0.7
+    grow: float = 1.4
+    min_scale: float = 0.25
+    max_scale: float = 2.5
+    restart_after: int = 6
+
+    def update(self, improved: bool) -> None:
+        if improved:
+            self.scale, self.stale = max(self.min_scale, self.scale * self.shrink), 0
+        else:
+            self.scale, self.stale = min(self.max_scale, self.scale * self.grow), self.stale + 1
+
+    def should_restart(self) -> bool:
+        return self.stale >= self.restart_after
+
+    def reset(self) -> None:
+        self.scale, self.stale = 1.0, 0
 
 
 # ---------------------------------------------------------------------------

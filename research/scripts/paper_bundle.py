@@ -53,13 +53,21 @@ def _rows(root: Path):
                 yield row
 
 
-def _outcomes(payload: dict) -> dict[str, bool]:
+def _outcomes(payload: dict) -> dict[str, bool] | None:
+    """Named outcomes for one run, or None when the run is invalid (crashed)."""
     result = classify_run(payload)
+    if not result.get("valid", True):
+        return None
     return {name: bool(result.get(name)) for name in OUTCOME_NAMES}
 
 
-def attributable_per_route(root: Path) -> dict[str, dict[str, list[int]]]:
-    """policy -> column -> per-route count of attributable issues."""
+def attributable_per_route(root: Path, skipped: dict[str, int] | None = None) -> dict[str, dict[str, list[int]]]:
+    """policy -> column -> per-route count of attributable issues.
+
+    Pairs where either the generated run or its control is invalid are
+    skipped (counted in ``skipped``); routes with no valid pair contribute
+    nothing rather than a zero.
+    """
     per_route: dict[str, dict[str, list[int]]] = {
         p: {c: [] for c in list(COLUMNS) + ["Total"]} for p in POLICIES
     }
@@ -74,6 +82,10 @@ def attributable_per_route(root: Path) -> dict[str, dict[str, list[int]]]:
             continue
         cand = _outcomes(row)
         ctrl = _outcomes(control)
+        if cand is None or ctrl is None:
+            if skipped is not None:
+                skipped[policy] = skipped.get(policy, 0) + 1
+            continue
         route_rows[policy][route].append((cand, ctrl))
     for policy, routes in route_rows.items():
         for route, pairs in routes.items():
@@ -101,12 +113,13 @@ def build_bundle(roots: dict[str, Path], out_dir: Path) -> Path:
         if not root.exists():
             lines.append(f"## {ads}: MISSING root {root}")
             continue
-        per_route = attributable_per_route(root)
+        skipped: dict[str, int] = {}
+        per_route = attributable_per_route(root, skipped)
         lines.append(f"## {ads}  ({root})")
         lines.append("")
-        header = "| Policy | " + " | ".join(list(COLUMNS) + ["Total"]) + " |"
+        header = "| Policy | Routes | Skipped pairs | " + " | ".join(list(COLUMNS) + ["Total"]) + " |"
         lines.append(header)
-        lines.append("|" + "---|" * (len(COLUMNS) + 2))
+        lines.append("|" + "---|" * (len(COLUMNS) + 4))
         tex.append(f"% {ads} attributable safety issues (mean $\\pm$ sd over routes)")
         tex.append(f"{ads} &")
         for policy in POLICIES:
@@ -114,7 +127,10 @@ def build_bundle(roots: dict[str, Path], out_dir: Path) -> Path:
             for column in list(COLUMNS) + ["Total"]:
                 m, s = _mean_sd(per_route[policy][column])
                 cells.append(f"{m:.2f}$\\pm${s:.2f}")
-            lines.append(f"| {POLICY_LABEL[policy]} | " + " | ".join(cells) + " |")
+            routes = len(per_route[policy]["Total"])
+            lines.append(
+                f"| {POLICY_LABEL[policy]} | {routes} | {skipped.get(policy, 0)} | " + " | ".join(cells) + " |"
+            )
         lines.append("")
     (out_dir / "BUNDLE.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     (out_dir / "tables.tex").write_text("\n".join(tex) + "\n", encoding="utf-8")

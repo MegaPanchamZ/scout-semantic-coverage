@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from math import sqrt
 from typing import Any
@@ -317,11 +318,20 @@ class LeadVehicleBrakingController(ScenarioController):
         self._actor: Any | None = None
         self._pre_brake_control: Any | None = None
         self._post_brake_control: Any | None = None
+        self._trigger_tick: int | None = None
+        self._released = False
+        self._tick_seconds = 0.1
+        # Seconds of braking before the lead drives off again. Absent/None keeps
+        # the historical behaviour (brake held until the episode ends), which
+        # turns the lead into a permanent roadblock.
+        release = self.params.get("release_after_s")
+        self._release_after_s = float(release) if release not in (None, "") else None
 
     def setup(self, context: dict[str, Any]) -> None:
         world = context["world"]
         carla = context["carla"]
         notes = context.setdefault("scenario_notes", [])
+        self._tick_seconds = float(world.get_settings().fixed_delta_seconds or 0.1)
 
         vehicle_bps = world.get_blueprint_library().filter(str(self.params.get("blueprint_filter", "vehicle.*")))
         if not vehicle_bps:
@@ -373,16 +383,51 @@ class LeadVehicleBrakingController(ScenarioController):
         context["lead_vehicle_trigger_distance_m"] = trigger_distance
         if not self._triggered and trigger_distance <= trigger_radius_m:
             self._triggered = True
+            self._trigger_tick = tick_index
             context["lead_vehicle_braking_active"] = True
             context.setdefault("scenario_notes", []).append(
                 f"Lead-vehicle braking adversary triggered at tick {tick_index + 1} (distance {trigger_distance:.2f} m)."
             )
         if self._triggered:
+            if (
+                self._release_after_s is not None
+                and self._trigger_tick is not None
+                and (tick_index - self._trigger_tick) * self._tick_seconds >= self._release_after_s
+            ):
+                if not self._released:
+                    self._released = True
+                    context["lead_vehicle_braking_active"] = False
+                    context.setdefault("scenario_notes", []).append(
+                        f"Lead-vehicle braking adversary released at tick {tick_index + 1}."
+                    )
+                self._actor.apply_control(self._release_control(carla, context))
+                return
             if self._post_brake_control is not None:
                 self._actor.apply_control(self._post_brake_control)
             return
         if self._pre_brake_control is not None:
             self._actor.apply_control(self._pre_brake_control)
+
+    def _release_control(self, carla: Any, context: dict[str, Any]) -> Any:
+        """Drive off along the lead's lane (steer toward a waypoint ~6 m ahead)."""
+        throttle = max(0.5, float(self.params.get("pre_brake_throttle", 0.3)))
+        steer = 0.0
+        try:
+            transform = self._actor.get_transform()
+            waypoint = context["world"].get_map().get_waypoint(transform.location)
+            ahead = waypoint.next(6.0)
+            if ahead:
+                target = ahead[0].transform.location
+                yaw = math.radians(transform.rotation.yaw)
+                dx = target.x - transform.location.x
+                dy = target.y - transform.location.y
+                # CARLA is left-handed (y right): positive lateral = target to the right.
+                lateral = -dx * math.sin(yaw) + dy * math.cos(yaw)
+                forward = dx * math.cos(yaw) + dy * math.sin(yaw)
+                steer = max(-1.0, min(1.0, math.atan2(lateral, max(forward, 0.1)) / 0.7))
+        except Exception:
+            pass
+        return carla.VehicleControl(throttle=throttle, brake=0.0, steer=steer, hand_brake=False)
 
 
 def build_scenario_controller(scenario: ScenarioSpec) -> ScenarioController:

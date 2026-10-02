@@ -39,7 +39,19 @@ CAMERA_SPECS = (
 # model coordinate frame: x forward, y left. CARLA steer positive = right.
 MAX_STEER_RAD = 0.65
 WHEELBASE_M = 2.9
-INFERENCE_INTERVAL_TICKS = 20  # 2 s at 10 Hz
+# Replanning interval. 20 ticks (2 s at 10 Hz) is the historical default;
+# SCOUT_AUTOVLA_INFER_TICKS overrides it (e.g. 5 = replan at the 2 Hz frame rate).
+INFERENCE_INTERVAL_TICKS = int(os.environ.get("SCOUT_AUTOVLA_INFER_TICKS", "20"))
+# Driving-command wording. "legacy" sends forward/left/right; "navsim" sends the
+# NAVSIM training vocabulary (keep forward / turn left / turn right) that the
+# PDMS checkpoint was fine-tuned on.
+COMMAND_STYLE = os.environ.get("SCOUT_AUTOVLA_COMMANDS", "legacy")
+_NAVSIM_COMMANDS = {"forward": "keep forward", "left": "turn left", "right": "turn right"}
+# How far along the route the driving command looks for a turn (historical: 16 m).
+COMMAND_LOOKAHEAD_M = float(os.environ.get("SCOUT_AUTOVLA_CMD_LOOKAHEAD_M", "16"))
+# Pure-pursuit target time along the predicted path (historical: 1 s). The
+# model's turns sit 2-5 s into its plan, so a 1 s target barely steers.
+TRACK_LOOKAHEAD_S = float(os.environ.get("SCOUT_AUTOVLA_TRACK_LOOKAHEAD_S", "1.0"))
 CAPTURE_INTERVAL_TICKS = 5     # 2 Hz frame sampling
 TARGET_SPEED_MPS = 5.5
 
@@ -150,7 +162,7 @@ class AutoVlaAdapter:
         if not self._route:
             return "forward"
         self._advance_route()
-        idx = min(self._route_index + 8, len(self._route) - 1)  # ~16 m ahead at 2 m spacing
+        idx = min(self._route_index + max(1, round(COMMAND_LOOKAHEAD_M / 2.0)), len(self._route) - 1)  # 2 m spacing
         target = self._route[idx].transform.location
         ego_tf = self._ego.get_transform()
         yaw = math.radians(ego_tf.rotation.yaw)
@@ -180,7 +192,7 @@ class AutoVlaAdapter:
         # Advance in time and transform the target through that original frame.
         times = _np.arange(len(pts) + 1) * 0.5
         xy = _np.vstack((_np.zeros((1, 2)), pts[:, :2]))
-        target_time = min(elapsed + 1.0, horizon)
+        target_time = min(elapsed + TRACK_LOOKAHEAD_S, horizon)
         target = _np.array([_np.interp(target_time, times, xy[:, i]) for i in (0, 1)])
         origin_x, origin_y, origin_yaw = self._trajectory_origin
         c, s = math.cos(origin_yaw), math.sin(origin_yaw)
@@ -249,7 +261,7 @@ class AutoVlaAdapter:
                     },
                     "vehicle_velocity": [v.x, v.y],
                     "vehicle_acceleration": [acceleration.x, acceleration.y],
-                    "driving_command": command,
+                    "driving_command": _NAVSIM_COMMANDS[command] if COMMAND_STYLE == "navsim" else command,
                     "dataset_name": "nuscenes",
                     "sensor_data_path": None,
                 }
@@ -266,6 +278,12 @@ class AutoVlaAdapter:
                     self._last_inference_tick = self._tick
                     self._last_command = command
                     self.last_step_info = {"command": command, "cot": str(cot)[:200]}
+                    try:
+                        # Decoded plan (model frame: x forward, y left) for offline diagnosis.
+                        pts = poses.detach().float().cpu().numpy() if hasattr(poses, "detach") else np.asarray(poses)
+                        self.last_step_info["poses_xy"] = [[round(float(a), 2), round(float(b), 2)] for a, b in pts[:, :2]]
+                    except Exception:
+                        pass
                 except Exception as exc:
                     import traceback as _tb
                     if not getattr(self, "_logged_error", False):

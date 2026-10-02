@@ -675,7 +675,8 @@ def test_hazard_campaign_changes_template_when_target_is_covered(tmp_path, monke
     output = tmp_path / "hazards"
     monkeypatch.setattr(sys, "argv", ["policy_search.py", "--policy", "semantic", "--base-spec", str(base_spec),
                                     "--route-label", "dry-route", "--output-dir", str(output), "--evals", "3",
-                                    "--hazard-search", "--engine-metrics", "--oracle", str(oracle_path)])
+                                    "--hazard-search", "--engine-metrics", "--oracle", str(oracle_path),
+                                    "--hazard-exploit-patience", "0"])
     policy_search.main()
     rows = _read_rows(output)
     if lead_available:
@@ -685,3 +686,43 @@ def test_hazard_campaign_changes_template_when_target_is_covered(tmp_path, monke
     else:
         assert [r["hazard_target"] for r in rows] == [crossing_target, None, None]
         assert all(r["template"] == "pedestrian_crossing" for r in rows)
+
+
+def test_hazard_campaign_holds_covered_target_for_exploitation(tmp_path, monkeypatch):
+    """With exploitation on, a credited target stays active until criticality stalls."""
+    base_spec = _write_base_spec(tmp_path)
+    crossing = json.loads(base_spec.read_text())
+    crossing["controller_params"].update({
+        "spawn_transform": {"location": {"x": 10., "y": 5., "z": 1.}, "rotation": {"yaw": 0.}},
+        "route_anchor_location": {"x": 10., "y": 0., "z": 1.},
+        "destination_location": {"x": 10., "y": -5., "z": 1.},
+    })
+    base_spec.write_text(json.dumps(crossing))
+    oracle_path = _write_oracle(tmp_path)
+    target = "hazard(other: pedestrian)"  # sorts first, so the scheduler picks it first
+    other = "hazard(pedestrian_in_path)"
+    monkeypatch.setattr(policy_search, "_mapped_hazard_universe", lambda oracle: {target, other})
+    _install_stub_evaluator(monkeypatch, stream_factory=None)
+
+    def observe(self, directory, index):
+        witnessed = {target}
+        new = witnessed - self.suite_covered
+        self.suite_covered.update(witnessed)
+        for sig in new:
+            self.first_uncover[sig] = index
+        return {"engine_run_obligations": sorted(witnessed), "engine_first_uncover": dict(self.first_uncover),
+                "engine_new_obligations": len(new), "engine_run_covered_count": len(witnessed)}
+
+    monkeypatch.setattr(policy_search.EngineCoverageState, "observe_stream", observe)
+    output = tmp_path / "hold"
+    monkeypatch.setattr(sys, "argv", ["policy_search.py", "--policy", "semantic", "--base-spec", str(base_spec),
+                                    "--route-label", "dry-route", "--output-dir", str(output), "--evals", "4",
+                                    "--hazard-search", "--engine-metrics", "--oracle", str(oracle_path),
+                                    "--hazard-exploit-patience", "2"])
+    policy_search.main()
+    rows = _read_rows(output)
+    # constant (zero) criticality never improves: eval 0 credits, evals 1-2 are
+    # stale exploitation of the same target, then the scheduler advances.
+    assert [r["hazard_target"] for r in rows[:3]] == [target, target, target]
+    assert rows[3]["hazard_target"] != target
+    assert all("criticality" in r for r in rows)

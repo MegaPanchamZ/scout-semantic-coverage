@@ -306,7 +306,7 @@ def test_policy_search_row_resume_reads_old_and_new_rows() -> None:
 
 def test_all_four_policies_share_one_space_object() -> None:
     module = _load_policy_search()
-    assert set(module.POLICIES) == {"random", "lsa", "kmnc", "semantic"}
+    assert set(module.POLICIES) == {"random", "lsa", "kmnc", "semantic", "critonly"}
     space = make_campaign_space(name="campaign-shared", seed=23)
     states = [module.PolicyState(policy, space) for policy in module.POLICIES]
     assert all(state.space is space for state in states)

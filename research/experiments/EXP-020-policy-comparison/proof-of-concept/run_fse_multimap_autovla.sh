@@ -52,6 +52,10 @@ else
   ROUTES="town05_spawn218_goal257 town05_spawn239_goal100 town10hd_spawn0_goal44 town10hd_spawn1_goal63 town10hd_spawn43_goal100 town01_spawn115_goal206"
 fi
 
+PORT="${SCOUT_PORT:-$PORT}"
+GPU="${SCOUT_GPU:-$CUDA}"
+ROUTES="${SCOUT_ROUTES:-$ROUTES}"
+
 mkdir -p "$OUT"
 
 if [ "${SCOUT_ENSURE_LEAD_SPECS:-1}" = "1" ]; then
@@ -64,7 +68,7 @@ for route in $ROUTES; do
   [ -f "$SPEC" ] || SPEC="$BASE/${route}.json"
   for policy in random lsa kmnc semantic; do
     echo "=== $(date -Is) worker ${WORKER} route ${route} policy ${policy} ==="
-    CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
+    CUDA_VISIBLE_DEVICES="${GPU}" "$PY" "$SEARCH" \
       --policy "$policy" --python-executable "$PY" \
       --seed "${SCOUT_SEED:-13}" --paired-controls \
       --search-space campaign --hazard-search \
@@ -81,10 +85,10 @@ for route in $ROUTES; do
       ${AUTOVLA_ARGS[@]+"${AUTOVLA_ARGS[@]}"} \
       --coverage-profile "$PROFILE" \
       --engine-metrics --oracle "$ORACLE" \
-      --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
+      --cuda-visible-devices "$GPU" --graphics-adapter "$GPU"
   done
   echo "=== $(date -Is) worker ${WORKER} route ${route} controls ==="
-  CUDA_VISIBLE_DEVICES="${CUDA}" "$PY" "$SEARCH" \
+  CUDA_VISIBLE_DEVICES="${GPU}" "$PY" "$SEARCH" \
     --policy random --control --python-executable "$PY" \
     --seed "${SCOUT_SEED:-13}" \
     --base-spec "$SPEC" \
@@ -99,7 +103,7 @@ for route in $ROUTES; do
     ${AUTOVLA_ARGS[@]+"${AUTOVLA_ARGS[@]}"} \
     --coverage-profile "$PROFILE" \
     --engine-metrics --oracle "$ORACLE" \
-    --cuda-visible-devices "$CUDA" --graphics-adapter "$CUDA"
+    --cuda-visible-devices "$GPU" --graphics-adapter "$GPU"
 done
 
 echo "=== worker ${WORKER} DONE $(date -Is) ==="

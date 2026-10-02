@@ -92,3 +92,34 @@ before attributing anything to the search.
   engineering approximations, not validated labels. Use
   `research/scripts/grounding_validation.py` to review them; producing the labels
   themselves is manual work (see `GROUNDING_VALIDATION.md`).
+
+## Search protocol v3 (criticality, exploitation, adaptive mutation)
+
+`PROTOCOL_VERSION = scout-search-v3`; v2 output directories cannot be resumed.
+
+- **Criticality fitness** (`harness/criticality.py`): per run, 0..2 from min TTC,
+  min vehicle/pedestrian distance, max deceleration, and collision (2.0). Stored as
+  `row["criticality"]`. The semantic elite is ordered lexicographically by
+  (target witnessed, criticality + 0.01 x supporting witnesses), so coverage always
+  dominates and criticality guides both stages. `--no-criticality` is the ablation.
+- **Stage-2 exploitation** (`ExploitTracker`, semantic policy only): once a target is
+  witnessed the scheduler stays on it until `--hazard-exploit-patience` (3)
+  consecutive evals fail to raise criticality, or `--hazard-exploit-cap` (8) evals.
+  `--hazard-exploit-patience 0` restores advance-on-credit.
+- **Adaptive mutation** (all guided policies, so baselines get the same optimiser):
+  per-elite sigma scale x0.7 on improvement / x1.4 on stagnation (0.25..2.5), uniform
+  restart after 6 stale evals, plus `--hazard-epsilon` (0.2) uniform samples.
+- **Ablation policy `critonly`**: criticality-guided search with no gap scheduling
+  (templates alternate, elite keyed by template). With `semantic --no-criticality`
+  it separates the two ingredients of SCOUT.
+- Baselines (random/lsa/kmnc) keep their own fitness and advance-on-credit scheduling.
+
+## Route audit
+
+`research/scripts/route_audit.py` reads each base route's baked polyline. Of the 17
+routes, only 7 are suitable (125-700 m): town01_spawn55_goal154, town03_spawn121_goal2,
+town03_spawn162_goal235, town05_spawn239_goal100, town10hd_spawn0_goal44,
+town10hd_spawn1_goal63, town10hd_spawn43_goal100. The RQ3 Interfuser routes
+spawn195 (40 m), spawn68 and spawn82 (86 m) are too short for the lead to brake before
+the goal, and spawn0 (1320 m) cannot finish under the tick cap. Use
+`route_audit.py --ticks ROUTE` for a per-route `--max-ticks`.

@@ -98,6 +98,20 @@ def classify_run(
 
     reached_goal = bool(run_payload.get("reached_goal"))
     ticks_executed = _integer(run_payload.get("ticks_executed"))
+    # A run that crashed or never stepped the simulator carries no driving
+    # evidence: report it as invalid rather than as an incomplete/unsafe run.
+    valid = not str(run_payload.get("run_error") or "").strip() and (
+        "ticks_executed" not in run_payload or bool(ticks_executed)
+    )
+    if not valid:
+        return {
+            "schema_version": SAFETY_OUTCOME_SCHEMA_VERSION,
+            "valid": False,
+            **{name: False for name in OUTCOME_NAMES},
+            "unsafe": False,
+            "reasons": [],
+            "raw": {"ticks_executed": ticks_executed},
+        }
     collision_count = _integer(run_payload.get("collision_count")) or 0
     terminated_by_collision = bool(run_payload.get("terminated_by_collision"))
 
@@ -166,6 +180,7 @@ def classify_run(
 
     return {
         "schema_version": SAFETY_OUTCOME_SCHEMA_VERSION,
+        "valid": True,
         **outcomes,
         "unsafe": bool(reasons),
         "reasons": reasons,
