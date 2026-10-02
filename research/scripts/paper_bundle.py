@@ -34,6 +34,9 @@ COLUMNS = {
     "Unsafe Proximity": ("unsafe_proximity",),
     "Rule Violation": ("red_light_violation", "lane_departure", "traffic_rule_violation"),
 }
+# Total = union of the four hard categories (route/stuck outcomes are reported
+# separately and would otherwise swamp the table).
+_HARD_NAMES = tuple(n for names in COLUMNS.values() for n in names)
 
 
 def _rows(root: Path):
@@ -51,7 +54,8 @@ def _rows(root: Path):
 
 
 def _outcomes(payload: dict) -> dict[str, bool]:
-    return classify_run(payload).get("outcomes", {})
+    result = classify_run(payload)
+    return {name: bool(result.get(name)) for name in OUTCOME_NAMES}
 
 
 def attributable_per_route(root: Path) -> dict[str, dict[str, list[int]]]:
@@ -74,7 +78,7 @@ def attributable_per_route(root: Path) -> dict[str, dict[str, list[int]]]:
     for policy, routes in route_rows.items():
         for route, pairs in routes.items():
             # a route contributes 1 if any candidate on it shows an attributable outcome
-            for column, names in list(COLUMNS.items()) + [("Total", OUTCOME_NAMES)]:
+            for column, names in list(COLUMNS.items()) + [("Total", _HARD_NAMES)]:
                 hit = any(
                     any(c.get(n) and not k.get(n) for n in names)
                     for c, k in pairs
