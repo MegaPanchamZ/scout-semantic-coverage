@@ -6,6 +6,7 @@
 # attributable safety issues, i.e. generated-but-not-matched-control).
 set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit 1
+LOG_DIR="${LOG_DIR:-research/logs}"; mkdir -p "$LOG_DIR"
 
 PY="research/.venv/bin/python"
 IF_ROOT="research/logs/paper_safety_if"
@@ -19,10 +20,10 @@ echo "[pipeline] Interfuser done ($(date -Is)); launched rows:"
 find "$IF_ROOT" -name rows.jsonl 2>/dev/null | wc -l
 
 echo "[pipeline] starting AutoVLA safety campaign ($(date -Is))"
-export SCOUT_GPU=0 SCOUT_EVAL_TIMEOUT=900 CARLA_ROOT=/opt/carla
+export SCOUT_GPU=0 SCOUT_EVAL_TIMEOUT=900 CARLA_ROOT="${CARLA_ROOT:-/opt/carla}"
 export SCOUT_EVALS=1 SCOUT_OUTPUT_ROOT="${AUTO_ROOT}/seed-13"
 for w in A B; do
-  bash "$AUTOVLA" "$w" > "/root/work/paper_autovla_${w}.log" 2>&1 &
+  bash "$AUTOVLA" "$w" > "${LOG_DIR}/paper_autovla_${w}.log" 2>&1 &
 done
 wait
 echo "[pipeline] AutoVLA done ($(date -Is))"

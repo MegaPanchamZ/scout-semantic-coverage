@@ -3,8 +3,12 @@
 The `scout-search-v2` protocol fixes scheduler advancement, changing novelty
 fitness, template eligibility, AutoVLA trajectory tracking and longitudinal
 control, and temporal hazard matching. Existing paper results were produced
-by earlier code and have **not** been regenerated or validated by these fixes.
-Do not combine old and new results. The search rejects incompatible checkpoints.
+by earlier code and have **not** been regenerated or validated by these fixes,
+except the RQ3 InterFuser safety campaign, which was rerun with `scout-search-v2`
+(see [RQ3 safety campaign](#rq3-safety-campaign-interfuser)). The current code
+is `scout-search-v3`, which adds criticality guidance, stage-2 exploitation and
+adaptive mutation ([GAP_DRIVEN_SEARCH.md](GAP_DRIVEN_SEARCH.md)). Do not combine old and
+new results. The search rejects incompatible checkpoints.
 
 The executable scenario representation used by this campaign is JSON
 `ScenarioSpec`, with two generator templates: pedestrian crossing (five
@@ -27,13 +31,15 @@ CARLA 0.9.16, the PCLA repository/checkpoints for InterFuser, and the upstream
 AutoVLA repository/model/codebook are external prerequisites. Model packages
 also require their upstream inference environments (including PyTorch).
 Weights and GPU packages are not installed by the lightweight test environment.
-Place PCLA under `research/models/PCLA`, or pass `--agent-repo-path` directly.
-Place AutoVLA under `research/models/AutoVLA`, with its Hugging Face checkpoint
-under `checkpoints/AutoVLA-hf` and `codebook_cache/agent_vocab.pkl` available.
-The checkpoint used in the original study was converted from the upstream
-merged Lightning release; its conversion is not part of this repository's
-verified reproduction workflow. Supply a compatible converted checkpoint
-before attempting AutoVLA execution.
+Clone PCLA and AutoVLA into `research/models/` at the pinned commits and apply
+the patches in [`research/patches/`](patches/README.md) (CUDA-graph forward with
+coverage hooks, thread caps, debug frames off by default, navsim-free AutoVLA
+import). PCLA can also be passed with `--agent-repo-path`. AutoVLA needs its
+Hugging Face checkpoint under `checkpoints/AutoVLA-hf` and
+`codebook_cache/agent_vocab.pkl`. The checkpoint was converted from the
+upstream Lightning release with `research/scripts/convert_autovla_hf.py`.
+The AutoVLA planning server is in `research/serving/autovla/` (see
+[MODEL_BACKENDS.md](MODEL_BACKENDS.md)).
 
 Set `CARLA_ROOT` to the extracted simulator directory containing `CarlaUE4.sh`.
 The simulator/agent integration must be validated on nominal routes before
@@ -143,5 +149,57 @@ PythonAPI agents are located through `CARLA_ROOT` (falling back to
 longer aborts a run: coverage metrics are logged as null and collision/goal
 outcomes are still recorded.
 
-Cluster runs use one worker per GPU (`A..H` for 8 GPUs); `run_fse_hazard.sh`
-launches whichever workers are listed in `SCOUT_WORKERS` (default `A B`).
+`run_fse_hazard.sh` launches whichever workers are listed in `SCOUT_WORKERS`
+(default `A B`). Workers `A..H` map to CARLA ports `2000..2070`.
+
+## CARLA fleet
+
+`research/scripts/start_carla_fleet.sh` starts one CARLA server per worker
+(`WORKERS`, default `A B`; `QUALITY`, default `Epic`; `CARLA_DIR`, default
+`/opt/carla`) as the unprivileged `CARLA_USER` and writes server logs to
+`LOG_DIR` (default `research/logs`). `research/scripts/carla_supervisor.sh`
+restarts crashed servers and runs one discarded warm-up episode on each fresh
+server, because the first episode on a cold server is not representative.
+
+Several CARLA servers on one GPU share its rendering throughput. On the H100
+used for the study, camera rendering is the bottleneck, so throughput is about
+the same from 2 to 8 servers (about 19 s per 400-tick InterFuser episode with
+two servers). Use two servers per GPU and add GPUs to scale. Idle servers are
+left in synchronous mode (`SCOUT_IDLE_ASYNC=1` disables this); an idle
+asynchronous server keeps rendering and slows the others. InterFuser debug
+frames are written only when `SAVE_PATH` is set.
+
+## RQ3 safety campaign (InterFuser)
+
+```bash
+export CARLA_ROOT=/path/to/CARLA_0.9.16
+WORKERS="A B" bash research/scripts/start_carla_fleet.sh
+WORKERS="A B" bash research/scripts/carla_supervisor.sh &
+SCOUT_EVALS=10 PORTS="2000 2010" bash research/scripts/run_rq3_queue.sh
+research/.venv/bin/python research/scripts/rq3_analysis.py \
+  --root interfuser=research/logs/rq3_if --budget 10 --out-dir research/logs/rq3_results
+```
+
+The queue runs seeds 13, 14 and 15 over four Town01 routes, with one search arm
+per policy (SCOUT, Random, LSA, KMNC) and one control arm per (seed, route).
+The control arm uses the same execution seeds and the adversary-stripped spec,
+so candidate evaluation *i* is paired with control evaluation *i*. An outcome
+counts as attributable when the candidate shows it and its paired control does
+not. The queue is resumable: rerunning the command continues unfinished arms.
+The baselines use the nominal profile
+`research/logs/coverage/if-if-safe-prefix-profile.joblib`. A copy is in
+`research/results/coverage/`; copy it to that path or rebuild it with
+`research/scripts/collect_nominal_and_build_profile.sh`.
+
+The 600 rows from the reported run and the reference tables are in
+[`research/results/`](results/README.md). The tables can be regenerated
+offline from those rows. Those rows were produced by `scout-search-v2`; running
+the queue with the current code runs `scout-search-v3`, a different search, so
+its numbers will differ from the reported ones.
+
+Known limitation: the LSA baseline scores with scikit-learn's tree-based
+`KernelDensity`. On a few low-density ticks its score differs from an exact
+Gaussian KDE, and the selected value depends on float32 rounding in the PCA
+projection (BLAS thread count). The coverage observer pins BLAS to one thread
+so the scores are deterministic for a given setup. The reported LSA numbers
+were computed this way.

@@ -1,4 +1,4 @@
-"""Generate benign, seed-randomised base scenarios (James review, item 1).
+"""Generate benign, seed-randomised base scenarios.
 
 Takes the verified per-route threshold-crossing specs and produces benign
 variants: the walker starts further back, crosses early (larger trigger

@@ -6,6 +6,7 @@
 # matched control per generated candidate (needed for attributable safety).
 set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit 1
+LOG_DIR="${LOG_DIR:-research/logs}"; mkdir -p "$LOG_DIR"
 
 PY="research/.venv/bin/python"
 IF_ROOT="research/logs/paper_safety_if"
@@ -17,14 +18,14 @@ VA=research/experiments/EXP-020-policy-comparison/proof-of-concept/run_fse_multi
 echo "[chain] restarting crashed CARLA ($(date -Is))"
 WORKERS="A B C D E F G H" QUALITY=Epic bash research/scripts/start_carla_fleet.sh || true
 
-export SCOUT_GPU=0 SCOUT_EVAL_TIMEOUT=1500 CARLA_ROOT=/opt/carla
+export SCOUT_GPU=0 SCOUT_EVAL_TIMEOUT=1500 CARLA_ROOT="${CARLA_ROOT:-/opt/carla}"
 export SCOUT_EVALS=1 SCOUT_ENSURE_LEAD_SPECS=0 SCOUT_CONTROLS=0
 
 echo "[chain] resuming Interfuser safety campaign ($(date -Is))"
 export SCOUT_OUTPUT_ROOT="${IF_ROOT}/seed-13"
-for w in A B C D E; do bash "$HZ" "$w" > "/root/work/paper_if_${w}.log" 2>&1 & done
-SCOUT_ROUTES="town01_spawn115_goal206 town10hd_spawn43_goal100" bash "$HZ" G > /root/work/paper_if_G.log 2>&1 &
-SCOUT_ROUTES="town01_spawn195_goal197 town01_spawn82_goal200" bash "$HZ" H > /root/work/paper_if_H.log 2>&1 &
+for w in A B C D E; do bash "$HZ" "$w" > "${LOG_DIR}/paper_if_${w}.log" 2>&1 & done
+SCOUT_ROUTES="town01_spawn115_goal206 town10hd_spawn43_goal100" bash "$HZ" G > ${LOG_DIR}/paper_if_G.log 2>&1 &
+SCOUT_ROUTES="town01_spawn195_goal197 town01_spawn82_goal200" bash "$HZ" H > ${LOG_DIR}/paper_if_H.log 2>&1 &
 wait
 echo "[chain] Interfuser done ($(date -Is)); arms with rows: $(find "$IF_ROOT" -name rows.jsonl | wc -l)"
 
@@ -37,10 +38,10 @@ sleep 5
 
 echo "[chain] AutoVLA safety campaign, 8 routes / 4 maps / 4 workers ($(date -Is))"
 export SCOUT_OUTPUT_ROOT="${AUTO_ROOT}/seed-13" SCOUT_EVAL_TIMEOUT=1200
-SCOUT_PORT=2000 SCOUT_ROUTES="town01_spawn0_goal82 town01_spawn55_goal154" bash "$VA" A > /root/work/paper_autovla_A.log 2>&1 &
-SCOUT_PORT=2010 SCOUT_ROUTES="town03_spawn121_goal2 town03_spawn125_goal223" bash "$VA" B > /root/work/paper_autovla_B.log 2>&1 &
-SCOUT_PORT=2020 SCOUT_ROUTES="town05_spawn0_goal124 town05_spawn218_goal257" bash "$VA" C > /root/work/paper_autovla_C.log 2>&1 &
-SCOUT_PORT=2030 SCOUT_ROUTES="town10hd_spawn0_goal44 town10hd_spawn1_goal63" bash "$VA" D > /root/work/paper_autovla_D.log 2>&1 &
+SCOUT_PORT=2000 SCOUT_ROUTES="town01_spawn0_goal82 town01_spawn55_goal154" bash "$VA" A > ${LOG_DIR}/paper_autovla_A.log 2>&1 &
+SCOUT_PORT=2010 SCOUT_ROUTES="town03_spawn121_goal2 town03_spawn125_goal223" bash "$VA" B > ${LOG_DIR}/paper_autovla_B.log 2>&1 &
+SCOUT_PORT=2020 SCOUT_ROUTES="town05_spawn0_goal124 town05_spawn218_goal257" bash "$VA" C > ${LOG_DIR}/paper_autovla_C.log 2>&1 &
+SCOUT_PORT=2030 SCOUT_ROUTES="town10hd_spawn0_goal44 town10hd_spawn1_goal63" bash "$VA" D > ${LOG_DIR}/paper_autovla_D.log 2>&1 &
 wait
 echo "[chain] AutoVLA done ($(date -Is)); arms with rows: $(find "$AUTO_ROOT" -name rows.jsonl 2>/dev/null | wc -l)"
 

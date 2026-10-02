@@ -1,0 +1,18 @@
+diff --git a/models/autovla.py b/models/autovla.py
+index 9815970..b9b858a 100644
+--- a/models/autovla.py
++++ b/models/autovla.py
+@@ -12,7 +12,12 @@ from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+ from qwen_vl_utils import process_vision_info
+ from models.action_tokenizer import ActionTokenizer
+ from transformers.modeling_outputs import CausalLMOutputWithPast
+-from models.utils.score import PDM_Reward, TrajectorySampling, Trajectory
++try:
++    # models.utils.score pulls in the navsim/nuplan training stack; guard it so
++    # that inference (the SCOUT CARLA bridge) does not require those packages.
++    from models.utils.score import PDM_Reward, TrajectorySampling, Trajectory
++except Exception:  # noqa: BLE001
++    PDM_Reward = TrajectorySampling = Trajectory = None
+ 
+ 
+ class GRPOAutoVLA(pl.LightningModule):

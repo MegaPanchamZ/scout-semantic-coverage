@@ -1,5 +1,5 @@
 #!/bin/bash
-# FSE'27 gap-driven policy matrix (James review items 1-2).
+# FSE'27 gap-driven policy matrix.
 #
 # Benign randomised seed scenarios + hazard/obligation scheduler: the semantic
 # arm selects an uncovered obligation, maps it to a scenario template

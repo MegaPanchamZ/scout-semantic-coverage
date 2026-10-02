@@ -11,7 +11,7 @@ keeps the import chain intact and fails with an explicit message if any code
 path actually tries to use augmentation.
 """
 
-__version__ = "0.4.0-mres-stub"
+__version__ = "0.4.0-scout-stub"
 
 _MESSAGE = (
     "imgaug is stubbed in this environment because imgaug 0.4.0 is incompatible "

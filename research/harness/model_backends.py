@@ -6,7 +6,7 @@ serving stacks, chosen at launch time:
 * ``torch``  - in-process Hugging Face / PyTorch model (the historical path,
   supports activation hooks for KMNC/LSA coverage).
 * ``http``   - a batched planning server exposing AutoVLA's exact video prompt
-  contract (e.g. ``/root/work/autovla_serve/plan_server.py`` over vLLM).
+  contract (e.g. ``research/serving/autovla/plan_server.py`` over vLLM).
 * ``openai`` - any OpenAI-compatible chat-completions server that hosts the
   converted AutoVLA checkpoint (vLLM ``serve``, SGLang server, llama.cpp
   ``llama-server``, ...).

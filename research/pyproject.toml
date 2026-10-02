@@ -1,7 +1,7 @@
 [project]
-name = "mres-research-harness"
+name = "scout-research-harness"
 version = "0.1.0"
-description = "Add your description here"
+description = "SCOUT: semantic coverage-guided testing of autonomous driving systems in CARLA"
 readme = "README.md"
 requires-python = ">=3.10, <3.12"
 dependencies = [

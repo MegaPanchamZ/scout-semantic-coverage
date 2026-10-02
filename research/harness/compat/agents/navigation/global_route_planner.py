@@ -52,7 +52,7 @@ def _load_modern_global_route_planner() -> Any:
     agents_root = module_path.parents[2]
     if str(agents_root) not in sys.path:
         sys.path.insert(0, str(agents_root))
-    spec = importlib.util.spec_from_file_location("_mres_modern_global_route_planner", module_path)
+    spec = importlib.util.spec_from_file_location("_scout_modern_global_route_planner", module_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Unable to load modern GlobalRoutePlanner from {module_path}")
     module = importlib.util.module_from_spec(spec)

@@ -6,6 +6,7 @@
 # parallel across CARLA ports in well under a minute.
 set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit 1
+LOG_DIR="${LOG_DIR:-research/logs}"; mkdir -p "$LOG_DIR"
 
 PY="${SCOUT_PYTHON:-research/.venv/bin/python}"
 SPEC="${SCOUT_SPEC:-research/experiments/EXP-020-policy-comparison/artifacts/base_specs/town01_spawn0_goal82_benign_seed0.json}"
@@ -25,7 +26,7 @@ for p in $PORTS; do
     --max-ticks 500 --output-dir "$RUNDIR" \
     --coverage-observer --coverage-trace-output "$OUTDIR" \
     --telemetry-observer --telemetry-output "$RUNDIR/telemetry" \
-    > "/root/work/nominal4_${p}.log" 2>&1 &
+    > "${LOG_DIR}/nominal4_${p}.log" 2>&1 &
   i=$((i+1))
 done
 wait
@@ -33,7 +34,7 @@ wait
 traces=$(ls "$OUTDIR"/*.npz 2>/dev/null | wc -l)
 echo "=== collected $traces coverage traces ==="
 if [ "$traces" -lt 2 ]; then
-  echo "too few traces; check /root/work/nominal4_*.log"; exit 1
+  echo "too few traces; check ${LOG_DIR}/nominal4_*.log"; exit 1
 fi
 "$PY" research/harness/build_coverage_profile.py \
   --input-glob "$OUTDIR/*.npz" --output "$PROFILE"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# FSE'27 multi-map gap-driven extension matrix (James review items 1-2).
+# FSE'27 multi-map gap-driven extension matrix.
 #
 # 8 routes across Town03 (2), Town05 (3), Town10HD (3), benign randomised seeds
 # and the hazard/obligation scheduler enabled (same protocol as run_fse_matrix.sh):

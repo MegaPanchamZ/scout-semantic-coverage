@@ -1,0 +1,517 @@
+diff --git a/pcla_agents/interfuser/base_agent.py b/pcla_agents/interfuser/base_agent.py
+index 7b052cd..4d8d096 100644
+--- a/pcla_agents/interfuser/base_agent.py
++++ b/pcla_agents/interfuser/base_agent.py
+@@ -90,8 +90,8 @@ class BaseAgent(autonomous_agent.AutonomousAgent):
+                     )
+                 )
+             print(string)
+-            self.save_path = pathlib.Path(os.environ["SAVE_PATH"]) / string
+-            self.save_path.mkdir(parents=True, exist_ok=False)
++            self.save_path = pathlib.Path(os.environ["SAVE_PATH"]) / (string + "_" + str(os.getpid()))
++            self.save_path.mkdir(parents=True, exist_ok=True)
+ 
+             for sensor in self.sensors():
+                 if hasattr(sensor, "save") and sensor["save"]:
+diff --git a/pcla_agents/interfuser/interfuser_agent.py b/pcla_agents/interfuser/interfuser_agent.py
+index c50b644..968833a 100644
+--- a/pcla_agents/interfuser/interfuser_agent.py
++++ b/pcla_agents/interfuser/interfuser_agent.py
+@@ -1,3 +1,5 @@
++import contextlib
++import collections
+ import os
+ import json
+ import datetime
+@@ -33,7 +35,9 @@ except ImportError:
+     raise RuntimeError("cannot import pygame, make sure pygame package is installed")
+ 
+ 
+-SAVE_PATH = os.environ.get("SAVE_PATH", 'eval')
++# Debug frames (a 1200x600 JPEG per tick) are only written when SAVE_PATH is
++# set; the old default 'eval' filled the disk (18 GB) and nothing reads them.
++SAVE_PATH = os.environ.get("SAVE_PATH") or None
+ IMAGENET_DEFAULT_MEAN = (0.485, 0.456, 0.406)
+ IMAGENET_DEFAULT_STD = (0.229, 0.224, 0.225)
+ 
+@@ -168,19 +172,53 @@ def create_carla_rgb_transform(
+     return transforms.Compose(tfl)
+ 
+ 
++class _GpuRgbTransform:
++    """Same output as create_carla_rgb_transform(...)(img).unsqueeze(0).cuda(),
++    but only the PIL resize + crop run on the CPU; the uint8 crop is uploaded
++    and ToTensor/Normalize run on the GPU. Matches the CPU path to ~1e-6 and
++    does not depend on the torch CPU thread pool at all."""
++
++    def __init__(self, input_size, need_scale=True):
++        self.resize = (
++            {112: (170, 128), 128: (195, 146), 224: (341, 256), 256: (288, 288)}[input_size]
++            if need_scale
++            else None
++        )
++        self.size = input_size
++        self.mean = torch.tensor(IMAGENET_DEFAULT_MEAN, device="cuda").view(1, 3, 1, 1)
++        self.std = torch.tensor(IMAGENET_DEFAULT_STD, device="cuda").view(1, 3, 1, 1)
++
++    def __call__(self, rgb):
++        a = np.asarray(Image.fromarray(rgb).resize(self.resize)) if self.resize else rgb
++        # torchvision CenterCrop offsets
++        h, w = a.shape[:2]
++        top = int(round((h - self.size) / 2.0))
++        left = int(round((w - self.size) / 2.0))
++        a = np.ascontiguousarray(a[top:top + self.size, left:left + self.size])
++        x = torch.from_numpy(a).cuda().permute(2, 0, 1).unsqueeze(0).float().div_(255)
++        return (x - self.mean) / self.std
++
++
+ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+     def setup(self, path_to_conf_file):
+ 
++        # This box advertises 64 CPUs, but PyTorch's default 64-thread intra-op
++        # pool thrashes badly against CARLA's renderer threads: measured a 64x64
++        # matmul at ~58 ms and the four camera transforms at ~1.4 s per tick.
++        # At <=8 threads the transforms cost ~10 ms and GPU inference is
++        # unaffected. Only tiny CPU tensor ops exist here, so cap the pool.
++        torch.set_num_threads(int(os.environ.get("INTERFUSER_TORCH_THREADS", "4")))
++
+         self._hic = DisplayInterface()
+         self.lidar_processed = list()
+         self.track = autonomous_agent.Track.SENSORS
+         self.step = -1
+         self.wall_start = time.time()
+         self.initialized = False
+-        self.rgb_front_transform = create_carla_rgb_transform(224)
+-        self.rgb_left_transform = create_carla_rgb_transform(128)
+-        self.rgb_right_transform = create_carla_rgb_transform(128)
+-        self.rgb_center_transform = create_carla_rgb_transform(128, need_scale=False)
++        self.rgb_front_transform = _GpuRgbTransform(224)
++        self.rgb_left_transform = _GpuRgbTransform(128)
++        self.rgb_right_transform = _GpuRgbTransform(128)
++        self.rgb_center_transform = _GpuRgbTransform(128, need_scale=False)
+ 
+         self.tracker = Tracker()
+ 
+@@ -219,6 +257,42 @@ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+             self.net.load_state_dict(torch.load(path_to_model_file, weights_only=False)["state_dict"])
+             self.net.cuda()
+             self.net.eval()
++        # fixed input shapes -> let cuDNN autotune conv kernels
++        torch.backends.cudnn.benchmark = True
++        # On the H100 the InterFuser forward is small-batch and memory-bound, so
++        # bf16 autocast actually *loses* to fp32 here (measured ~2x slower: the
++        # extra casts/plan changes outweigh tensor-core gains). TF32 keeps fp32
++        # kernels but uses tensor cores for the matmuls/convs, and channels_last
++        # (numerically exact) picks NHWC kernels. Measured ~1.8x over plain fp32.
++        torch.backends.cuda.matmul.allow_tf32 = True
++        torch.backends.cudnn.allow_tf32 = True
++        if self.ensemble:
++            self.nets = [n.to(memory_format=torch.channels_last) for n in self.nets]
++        else:
++            self.net = self.net.to(memory_format=torch.channels_last)
++        # Set INTERFUSER_BF16=1 to restore the old bf16-autocast path for A/B.
++        self._bf16 = os.environ.get("INTERFUSER_BF16", "0") == "1"
++        # The forward is ~250 tiny kernel launches at batch 1, so it is
++        # launch-bound. Replaying a captured CUDA graph is bit-identical to eager
++        # (max abs diff 0) and measured 18 -> 10 ms. Captured lazily on the first
++        # forward. Set INTERFUSER_CUDA_GRAPH=0 to use plain eager.
++        self._use_graph = (
++            os.environ.get("INTERFUSER_CUDA_GRAPH", "1") == "1"
++            and not self.ensemble
++            and not self._bf16
++        )
++        self._graph = None
++        self._graph_signature = None
++        self._graph_taps = []
++        # Set INTERFUSER_PROFILE=1 to print a per-phase run_step breakdown every
++        # INTERFUSER_PROFILE_EVERY ticks (default 50). Off by default: it inserts
++        # a CUDA sync between phases, which is exactly what makes the attribution
++        # honest but also makes it slower.
++        self._profile = os.environ.get("INTERFUSER_PROFILE", "0") == "1"
++        self._prof_ts = []
++        self._prof_acc = {}
++        self._prof_frames = 0
++        self._prof_every = int(os.environ.get("INTERFUSER_PROFILE_EVERY", "50"))
+         self.softmax = torch.nn.Softmax(dim=1)
+         self.traffic_meta_moving_avg = np.zeros((400, 7))
+         self.momentum = self.config.momentum
+@@ -239,9 +313,9 @@ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+ 
+             print(string)
+ 
+-            self.save_path = pathlib.Path(SAVE_PATH) / string
+-            self.save_path.mkdir(parents=True, exist_ok=False)
+-            (self.save_path / "meta").mkdir(parents=True, exist_ok=False)
++            self.save_path = pathlib.Path(SAVE_PATH) / (string + "_" + str(os.getpid()))
++            self.save_path.mkdir(parents=True, exist_ok=True)
++            (self.save_path / "meta").mkdir(parents=True, exist_ok=True)
+ 
+     def _init(self):
+         self._route_planner = RoutePlanner(4.0, 50.0)
+@@ -404,35 +478,17 @@ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+         if self.step % self.skip_frames != 0 and self.step > 4:
+             return self.prev_control
+ 
++        self._mark("start")
+         tick_data = self.tick(input_data)
++        self._mark("tick")
+ 
+         velocity = tick_data["speed"]
+         command = tick_data["next_command"]
+ 
+-        rgb = (
+-            self.rgb_front_transform(Image.fromarray(tick_data["rgb"]))
+-            .unsqueeze(0)
+-            .cuda()
+-            .float()
+-        )
+-        rgb_left = (
+-            self.rgb_left_transform(Image.fromarray(tick_data["rgb_left"]))
+-            .unsqueeze(0)
+-            .cuda()
+-            .float()
+-        )
+-        rgb_right = (
+-            self.rgb_right_transform(Image.fromarray(tick_data["rgb_right"]))
+-            .unsqueeze(0)
+-            .cuda()
+-            .float()
+-        )
+-        rgb_center = (
+-            self.rgb_center_transform(Image.fromarray(tick_data["rgb"]))
+-            .unsqueeze(0)
+-            .cuda()
+-            .float()
+-        )
++        rgb = self.rgb_front_transform(tick_data["rgb"])
++        rgb_left = self.rgb_left_transform(tick_data["rgb_left"])
++        rgb_right = self.rgb_right_transform(tick_data["rgb_right"])
++        rgb_center = self.rgb_center_transform(tick_data["rgb"])
+ 
+         cmd_one_hot = [0, 0, 0, 0, 0, 0]
+         cmd = command - 1
+@@ -453,6 +509,13 @@ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+         input_data["lidar"] = (
+             torch.from_numpy(tick_data["lidar"]).float().cuda().unsqueeze(0)
+         )
++        # NHWC memory format so cuDNN uses the fast channels_last kernels; the
++        # model was converted in setup(). Numerically identical to NCHW.
++        for _key in ("rgb", "rgb_left", "rgb_right", "rgb_center", "lidar"):
++            input_data[_key] = input_data[_key].contiguous(
++                memory_format=torch.channels_last
++            )
++        self._mark("prep")
+         if self.ensemble:
+             outputs = []
+             with torch.no_grad():
+@@ -465,8 +528,22 @@ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+             traffic_light_state = torch.mean(torch.stack([x[3] for x in outputs]), 0)
+             stop_sign = torch.mean(torch.stack([x[4] for x in outputs]), 0)
+             bev_feature = torch.mean(torch.stack([x[5] for x in outputs]), 0)
++        elif self._use_graph and self._hooks_graph_compatible():
++            (
++                traffic_meta,
++                pred_waypoints,
++                is_junction,
++                traffic_light_state,
++                stop_sign,
++                bev_feature,
++            ) = self._graph_forward(input_data)
+         else:
+-            with torch.no_grad():
++            _autocast = (
++                torch.autocast("cuda", dtype=torch.bfloat16)
++                if self._bf16
++                else contextlib.nullcontext()
++            )
++            with torch.no_grad(), _autocast:
+                 (
+                     traffic_meta,
+                     pred_waypoints,
+@@ -475,14 +552,16 @@ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+                     stop_sign,
+                     bev_feature,
+                 ) = self.net(input_data)
+-        traffic_meta = traffic_meta.detach().cpu().numpy()[0]
+-        bev_feature = bev_feature.detach().cpu().numpy()[0]
+-        pred_waypoints = pred_waypoints.detach().cpu().numpy()[0]
+-        is_junction = self.softmax(is_junction).detach().cpu().numpy().reshape(-1)[0]
++        self._mark("forward")
++        traffic_meta = traffic_meta.float().detach().cpu().numpy()[0]
++        bev_feature = bev_feature.float().detach().cpu().numpy()[0]
++        pred_waypoints = pred_waypoints.float().detach().cpu().numpy()[0]
++        is_junction = self.softmax(is_junction.float()).detach().cpu().numpy().reshape(-1)[0]
+         traffic_light_state = (
+-            self.softmax(traffic_light_state).detach().cpu().numpy().reshape(-1)[0]
++            self.softmax(traffic_light_state.float()).detach().cpu().numpy().reshape(-1)[0]
+         )
+-        stop_sign = self.softmax(stop_sign).detach().cpu().numpy().reshape(-1)[0]
++        stop_sign = self.softmax(stop_sign.float()).detach().cpu().numpy().reshape(-1)[0]
++        self._mark("postprocess")
+ 
+ 
+         if self.step % 2 == 0 or self.step < 4:
+@@ -505,6 +584,7 @@ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+             stop_sign,
+             self.traffic_meta_moving_avg,
+         )
++        self._mark("control")
+ 
+         if brake < 0.05:
+             brake = 0.0
+@@ -516,87 +596,186 @@ class InterfuserAgent(autonomous_agent.AutonomousAgent):
+         control.throttle = float(throttle)
+         control.brake = float(brake)
+ 
+-        surround_map, box_info = render(traffic_meta.reshape(20, 20, 7), pixels_per_meter=20)
+-        surround_map = surround_map[:400, 160:560]
+-        surround_map = np.stack([surround_map, surround_map, surround_map], 2)
+-
+-        self_car_map = render_self_car(
+-            loc=np.array([0, 0]),
+-            ori=np.array([0, -1]),
+-            box=np.array([2.45, 1.0]),
+-            color=[1, 1, 0], pixels_per_meter=20
+-        )[:400, 160:560]
+-
+-        pred_waypoints = pred_waypoints.reshape(-1, 2)
+-        safe_index = 10
+-        for i in range(10):
+-            if pred_waypoints[i, 0] ** 2 + pred_waypoints[i, 1] ** 2> (meta_infos[3]+0.5) ** 2:
+-                safe_index = i
+-                break
+-        wp1 = render_waypoints(pred_waypoints[:safe_index], pixels_per_meter=20, color=(0, 255, 0))[:400, 160:560]
+-        wp2 = render_waypoints(pred_waypoints[safe_index:], pixels_per_meter=20, color=(255, 0, 0))[:400, 160:560]
+-        wp = wp1 + wp2
+-
+-        surround_map = np.clip(
+-            (
+-                surround_map.astype(np.float32)
+-                + self_car_map.astype(np.float32)
+-                + wp.astype(np.float32)
+-            ),
+-            0,
+-            255,
+-        ).astype(np.uint8)
+-
+-        map_t1, box_info = render(traffic_meta.reshape(20, 20, 7), pixels_per_meter=20, t=1)
+-        map_t1 = map_t1[:400, 160:560]
+-        map_t1 = np.stack([map_t1, map_t1, map_t1], 2)
+-        map_t1 = np.clip(map_t1.astype(np.float32) + self_car_map.astype(np.float32), 0, 255).astype(np.uint8)
+-        map_t1 = cv2.resize(map_t1, (200, 200))
+-        map_t2, box_info = render(traffic_meta.reshape(20, 20, 7), pixels_per_meter=20, t=2)
+-        map_t2 = map_t2[:400, 160:560]
+-        map_t2 = np.stack([map_t2, map_t2, map_t2], 2)
+-        map_t2 = np.clip(map_t2.astype(np.float32) + self_car_map.astype(np.float32), 0, 255).astype(np.uint8)
+-        map_t2 = cv2.resize(map_t2, (200, 200))
++        # The BEV renders and the display surface only feed the debug frames.
++        if self.save_path is not None:
++            surround_map, box_info = render(traffic_meta.reshape(20, 20, 7), pixels_per_meter=20)
++            surround_map = surround_map[:400, 160:560]
++            surround_map = np.stack([surround_map, surround_map, surround_map], 2)
++
++            self_car_map = render_self_car(
++                loc=np.array([0, 0]),
++                ori=np.array([0, -1]),
++                box=np.array([2.45, 1.0]),
++                color=[1, 1, 0], pixels_per_meter=20
++            )[:400, 160:560]
++
++            pred_waypoints = pred_waypoints.reshape(-1, 2)
++            safe_index = 10
++            for i in range(10):
++                if pred_waypoints[i, 0] ** 2 + pred_waypoints[i, 1] ** 2> (meta_infos[3]+0.5) ** 2:
++                    safe_index = i
++                    break
++            wp1 = render_waypoints(pred_waypoints[:safe_index], pixels_per_meter=20, color=(0, 255, 0))[:400, 160:560]
++            wp2 = render_waypoints(pred_waypoints[safe_index:], pixels_per_meter=20, color=(255, 0, 0))[:400, 160:560]
++            wp = wp1 + wp2
++
++            surround_map = np.clip(
++                (
++                    surround_map.astype(np.float32)
++                    + self_car_map.astype(np.float32)
++                    + wp.astype(np.float32)
++                ),
++                0,
++                255,
++            ).astype(np.uint8)
++
++            map_t1, box_info = render(traffic_meta.reshape(20, 20, 7), pixels_per_meter=20, t=1)
++            map_t1 = map_t1[:400, 160:560]
++            map_t1 = np.stack([map_t1, map_t1, map_t1], 2)
++            map_t1 = np.clip(map_t1.astype(np.float32) + self_car_map.astype(np.float32), 0, 255).astype(np.uint8)
++            map_t1 = cv2.resize(map_t1, (200, 200))
++            map_t2, box_info = render(traffic_meta.reshape(20, 20, 7), pixels_per_meter=20, t=2)
++            map_t2 = map_t2[:400, 160:560]
++            map_t2 = np.stack([map_t2, map_t2, map_t2], 2)
++            map_t2 = np.clip(map_t2.astype(np.float32) + self_car_map.astype(np.float32), 0, 255).astype(np.uint8)
++            map_t2 = cv2.resize(map_t2, (200, 200))
++            self._mark("render")
+ 
+ 
+         if self.step % 2 != 0 and self.step > 4:
+             control = self.prev_control
+         else:
+             self.prev_control = control
+-            self.prev_surround_map = surround_map
+-
+-        tick_data["map"] = self.prev_surround_map
+-        tick_data["map_t1"] = map_t1
+-        tick_data["map_t2"] = map_t2
+-        tick_data["rgb_raw"] = tick_data["rgb"]
+-        tick_data["rgb_left_raw"] = tick_data["rgb_left"]
+-        tick_data["rgb_right_raw"] = tick_data["rgb_right"]
+-
+-        tick_data["rgb"] = cv2.resize(tick_data["rgb"], (800, 600))
+-        tick_data["rgb_left"] = cv2.resize(tick_data["rgb_left"], (200, 150))
+-        tick_data["rgb_right"] = cv2.resize(tick_data["rgb_right"], (200, 150))
+-        tick_data["rgb_focus"] = cv2.resize(tick_data["rgb_raw"][244:356, 344:456], (150, 150))
+-        tick_data["control"] = "throttle: %.2f, steer: %.2f, brake: %.2f" % (
+-            control.throttle,
+-            control.steer,
+-            control.brake,
+-        )
+-        tick_data["meta_infos"] = meta_infos
+-        tick_data["box_info"] = "car: %d, bike: %d, pedestrian: %d" % (
+-            box_info["car"],
+-            box_info["bike"],
+-            box_info["pedestrian"],
+-        )
+-        tick_data["mes"] = "speed: %.2f" % velocity
+-        tick_data["time"] = "time: %.3f" % timestamp
+-        surface = self._hic.run_interface(tick_data)
+-        tick_data["surface"] = surface
++            if self.save_path is not None:
++                self.prev_surround_map = surround_map
++
++        if self.save_path is not None:
++            tick_data["map"] = self.prev_surround_map
++            tick_data["map_t1"] = map_t1
++            tick_data["map_t2"] = map_t2
++            tick_data["rgb_raw"] = tick_data["rgb"]
++            tick_data["rgb_left_raw"] = tick_data["rgb_left"]
++            tick_data["rgb_right_raw"] = tick_data["rgb_right"]
++
++            tick_data["rgb"] = cv2.resize(tick_data["rgb"], (800, 600))
++            tick_data["rgb_left"] = cv2.resize(tick_data["rgb_left"], (200, 150))
++            tick_data["rgb_right"] = cv2.resize(tick_data["rgb_right"], (200, 150))
++            tick_data["rgb_focus"] = cv2.resize(tick_data["rgb_raw"][244:356, 344:456], (150, 150))
++            tick_data["control"] = "throttle: %.2f, steer: %.2f, brake: %.2f" % (
++                control.throttle,
++                control.steer,
++                control.brake,
++            )
++            tick_data["meta_infos"] = meta_infos
++            tick_data["box_info"] = "car: %d, bike: %d, pedestrian: %d" % (
++                box_info["car"],
++                box_info["bike"],
++                box_info["pedestrian"],
++            )
++            tick_data["mes"] = "speed: %.2f" % velocity
++            tick_data["time"] = "time: %.3f" % timestamp
++            surface = self._hic.run_interface(tick_data)
++            tick_data["surface"] = surface
++        self._mark("display")
+ 
+         if SAVE_PATH is not None:
+             self.save(tick_data)
++        self._mark("save")
++        self._profile_finish()
+ 
+         return control
+ 
++    def _hooks_graph_compatible(self):
++        """Graph replay skips Python, so module hooks would only fire once at
++        capture. Plain forward hooks (e.g. the coverage observer's activation
++        hook) are served from the graph instead: the hooked module's output is
++        captured as an extra graph output and the hooks are called on it after
++        each replay. Global hooks, pre-hooks and kwargs hooks fall back to
++        eager."""
++        nn_mod = torch.nn.modules.module
++        if nn_mod._global_forward_hooks or nn_mod._global_forward_pre_hooks:
++            return False
++        for m in self.net.modules():
++            if m._forward_pre_hooks or getattr(m, "_forward_hooks_with_kwargs", None):
++                return False
++        return True
++
++    @torch.no_grad()
++    def _graph_forward(self, input_data):
++        """Run self.net through a CUDA graph. Outputs are the graph's static
++        buffers, overwritten on the next call, so callers must copy them out
++        (run_step does, via .cpu()) before the next tick. Recaptured whenever
++        the set of forward hooks changes."""
++        hooked = [m for m in self.net.modules() if m._forward_hooks]
++        signature = tuple((id(m), tuple(m._forward_hooks.keys())) for m in hooked)
++        if self._graph is None or signature != self._graph_signature:
++            self._capture_graph(input_data, hooked)
++            self._graph_signature = signature
++        for k, v in input_data.items():
++            self._graph_in[k].copy_(v)
++        self._graph.replay()
++        for m, output in zip(hooked, self._graph_taps):
++            for hook in list(m._forward_hooks.values()):
++                hook(m, (), output)
++        return self._graph_out
++
++    def _capture_graph(self, input_data, hooked):
++        self._graph = None
++        self._graph_in = {k: v.clone() for k, v in input_data.items()}
++        # Swap the user hooks for taps that keep a reference to the module
++        # output; inside the graph that output is a static buffer refreshed on
++        # every replay.
++        saved = {m: m._forward_hooks for m in hooked}
++        taps = {}
++        for m in hooked:
++            m._forward_hooks = collections.OrderedDict()
++            m.register_forward_hook(lambda mod, _inp, out: taps.__setitem__(mod, out))
++        try:
++            # Warm up on a side stream (cuDNN autotune, allocator) before capture.
++            side = torch.cuda.Stream()
++            side.wait_stream(torch.cuda.current_stream())
++            with torch.cuda.stream(side):
++                for _ in range(3):
++                    self.net(self._graph_in)
++            torch.cuda.current_stream().wait_stream(side)
++            graph = torch.cuda.CUDAGraph()
++            with torch.cuda.graph(graph):
++                self._graph_out = self.net(self._graph_in)
++            self._graph_taps = [taps[m] for m in hooked]
++            self._graph = graph
++        finally:
++            for m in hooked:
++                m._forward_hooks = saved[m]
++
++    def _mark(self, label):
++        """Record a phase boundary. Syncs the GPU first so a phase that ends by
++        waiting on kernels (e.g. the forward) is charged its true device time and
++        the following .cpu() does not inherit the wait."""
++        if not self._profile:
++            return
++        torch.cuda.synchronize()
++        self._prof_ts.append((label, time.perf_counter()))
++
++    def _profile_finish(self):
++        if not self._profile:
++            return
++        ts = self._prof_ts
++        self._prof_ts = []
++        for (_, t0), (label, t1) in zip(ts, ts[1:]):
++            self._prof_acc[label] = self._prof_acc.get(label, 0.0) + (t1 - t0)
++        self._prof_frames += 1
++        if self._prof_every > 0 and self._prof_frames % self._prof_every == 0:
++            n = self._prof_frames
++            total = sum(self._prof_acc.values())
++            parts = " | ".join(
++                "%s=%.0f" % (k, 1000.0 * v / n) for k, v in self._prof_acc.items()
++            )
++            print(
++                "[interfuser-profile] n=%d  total=%.0f ms/tick  %s"
++                % (n, 1000.0 * total / n, parts),
++                flush=True,
++            )
++
+     def save(self, tick_data):
+         frame = self.step // self.skip_frames
+         Image.fromarray(tick_data["surface"]).save(

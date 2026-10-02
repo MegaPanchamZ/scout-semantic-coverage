@@ -1,5 +1,5 @@
 #!/bin/bash
-# Frozen-seed ADS validation (James review, item 4).
+# Frozen-seed ADS validation.
 # Repeats one identical benign scenario N times with no search and reports
 # collision/goal rates. Run before any full campaign: if collisions stay near
 # ~50% on a benign frozen seed, debug the ADS/CARLA bridge first.

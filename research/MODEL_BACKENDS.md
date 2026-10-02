@@ -34,7 +34,7 @@ research/.venv/bin/python research/harness/run_shakedown.py \
 
 Talks to a server exposing `POST /plan` with AutoVLA's **native video** contract
 (3 cameras x 4 frames). Reference implementation:
-`/root/work/autovla_serve/plan_server.py` (vLLM offline engine, continuous
+`research/serving/autovla/plan_server.py` (vLLM offline engine, continuous
 batching; measured ~45 planning steps/s at batch 128 on an H100).
 
 ```
@@ -60,11 +60,12 @@ endpoint.
 
 ```bash
 # vLLM /plan server (video contract, batched)
-VLLM_USE_FLASHINFER_SAMPLER=0 /root/work/vllm_env/bin/python \
-  /root/work/autovla_serve/plan_server.py
+# (separate venv with vllm; the harness venv does not need it)
+VLLM_USE_FLASHINFER_SAMPLER=0 <vllm-env>/bin/python \
+  research/serving/autovla/plan_server.py
 
 # or stock OpenAI server (image contract)
-VLLM_USE_FLASHINFER_SAMPLER=0 /root/work/vllm_env/bin/vllm serve \
+VLLM_USE_FLASHINFER_SAMPLER=0 <vllm-env>/bin/vllm serve \
   research/models/AutoVLA/checkpoints/AutoVLA-hf \
   --served-model-name autovla --port 8100 \
   --limit-mm-per-prompt '{"image":12,"video":3}' \
