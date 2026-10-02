@@ -6,7 +6,12 @@ the named safety metrics already stored on every row, so it is cheap and can be
 recomputed offline for archived rows.
 
 Range: 0 (benign) .. 2 (collision). Near misses fall in between:
-``max(1.5 s / min_ttc, 2.5 m / min_distance, decel / 6 m/s^2)`` clipped to 1.
+``max(1.5 s / min_ttc, 2.5 m / min_distance)`` clipped to 1.
+
+Peak deceleration is deliberately *not* a term: in the pilot every run, benign
+ones included, showed 17-27 m/s^2 from the ADS slamming to a full stop (the
+per-tick speed difference), which pinned the score at 1.0 and removed any
+gradient. The harsh-braking outcome still reports it separately.
 """
 
 from __future__ import annotations
@@ -15,7 +20,6 @@ from typing import Any
 
 TTC_REF_S = 1.5
 DIST_REF_M = 2.5
-DECEL_REF_MPS2 = 6.0
 COLLISION_SCORE = 2.0
 
 
@@ -42,7 +46,4 @@ def criticality_score(row: dict[str, Any]) -> float:
         dist = _num(raw.get(key))
         if dist is not None:
             terms.append(DIST_REF_M / max(dist, 0.1))
-    decel = _num(raw.get("max_deceleration_mps2"))
-    if decel is not None:
-        terms.append(decel / DECEL_REF_MPS2)
     return round(min(1.0, max(terms)), 4)

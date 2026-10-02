@@ -124,3 +124,8 @@ def test_target_progress_prefers_critical_when_covered(monkeypatch):
     f = lambda r: ps._target_progress(Oracle(), "t", r, use_criticality=True)
     assert f(hi) > f(lo) > f(miss)
     assert ps._target_progress(Oracle(), "t", hi)[1] == ps._target_progress(Oracle(), "t", lo)[1]
+
+
+def test_criticality_ignores_peak_deceleration():
+    slam = {"safety_raw": {"min_ttc_s": 9.0, "min_vehicle_distance_m": 30.0, "max_deceleration_mps2": 27.0}}
+    assert criticality_score(slam) < 0.2
