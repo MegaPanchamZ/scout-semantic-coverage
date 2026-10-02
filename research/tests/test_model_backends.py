@@ -104,7 +104,9 @@ def test_openai_backend_no_actions(tmp_path, monkeypatch):
         backend.plan(_features(tmp_path))
 
 
-def test_make_backend_selection():
+def test_make_backend_selection(monkeypatch):
+    # the real codebook lives in the untracked AutoVLA checkout
+    monkeypatch.setattr(mb, "load_codebook", lambda path=None: np.zeros((2048, 2)))
     with pytest.raises(ValueError):
         mb.make_backend("nope")
     with pytest.raises(ValueError):
