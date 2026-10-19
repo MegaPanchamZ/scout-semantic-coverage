@@ -56,7 +56,10 @@ import sys
 import time
 
 
+POC_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+if str(POC_DIR) not in sys.path:
+    sys.path.insert(0, str(POC_DIR))
 if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
 
@@ -88,7 +91,7 @@ from research.harness.search_space import (  # noqa: E402
 DIAGNOSTICS_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_inter_session_diagnostics.py"
 SHAKEDOWN_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_shakedown.py"
 DEFAULT_PYTHON = WORKSPACE_ROOT / "research" / ".venv" / "bin" / "python"
-DEFAULT_CARLA_ROOT = Path(os.environ.get("CARLA_ROOT", "/mnt/DevDrive/carla-0.9.16"))
+DEFAULT_CARLA_ROOT = Path(os.environ.get("CARLA_ROOT", str(Path.home() / "carla-0.9.16")))
 DEFAULT_OBLIGATIONS = [
     "stationary(ego)",
     "in_front_of(pedestrian,ego)",
@@ -98,7 +101,7 @@ DEFAULT_OBLIGATIONS = [
 ]
 # "critonly" is an ablation: criticality-guided search with no semantic gap scheduling.
 DEFAULT_TEMPLATE_NAME = "pedestrian_crossing"
-POLICIES = ("random", "lsa", "kmnc", "semantic", "critonly")
+POLICIES = ("random", "lsa", "kmnc", "semantic", "critonly", "avfuzzer", "causal", "semantic_crit")
 PROTOCOL_VERSION = "scout-search-v3"
 
 
@@ -425,6 +428,7 @@ class PolicyState:
         *,
         run_obligations: set[str] | None = None,
         covered_before: set[str] | None = None,
+        row: dict | None = None,
     ) -> None:
         if not values or fitness is None:
             return
@@ -518,6 +522,9 @@ def _semantic_fitness(row: dict, policy: str, *, engine_active: bool = False) ->
         return _as_float(row.get("coverage_kmnc"))
     if policy == "critonly":
         return float(row.get("criticality", criticality_score(row)))
+    if policy in ("avfuzzer", "causal", "semantic_crit"):
+        from baselines import gap_fitness
+        return gap_fitness(row)
     if policy == "semantic":
         if engine_active:
             return _as_float(row.get("engine_new_obligations"))
@@ -579,6 +586,8 @@ def _row_from_run(run_payload: dict, duration: float) -> dict:
         "semantic_missing_obligations": list(obligation_credit.get("missing_obligations") or []),
         "semantic_covered_predicates": list(semantic.get("covered_predicates") or []),
         "semantic_covered_signatures": list(semantic.get("covered_signatures") or []),
+        "min_gap_m": _as_float(metadata.get("min_gap_m")),
+        "first_violation_sim_s": _as_float(metadata.get("first_violation_sim_s")),
         "run_error": None,
     }
 
@@ -704,6 +713,45 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
     return _failure_row(time.time() - started, last_error)
 
 
+_AUTOWARE_SERVICES: dict = {}
+
+
+def _run_evaluation_autoware(args: argparse.Namespace, spec_payload: dict, candidate_id: str, work_dir: Path, port: int) -> dict:
+    """Evaluate one candidate on Autoware (CARLA 0.9.15, real perception) through the persistent scenario service.
+
+    Same contract as _run_evaluation_server: returns a row built by _row_from_run, with the semantic stream placed under
+    work_dir/semantic so the coverage engine reads it exactly as for harness-driven runs. Autoware cannot be launched per
+    candidate (minutes of startup), so one service per town is kept alive and its ego is reset between candidates.
+    """
+    sys.path.insert(0, str(WORKSPACE_ROOT / "scripts" / "autoware_bridge"))
+    from autoware_service import AutowareService, ServiceError  # noqa: E402
+
+    work_dir.mkdir(parents=True, exist_ok=True)
+    started = time.time()
+    spec = dict(spec_payload)
+    spec["scenario_id"] = candidate_id                      # unique per evaluation: it names the service's result files
+    _write_json(work_dir / f"{candidate_id}.json", spec)
+    town = spec["town"]
+    try:
+        svc = _AUTOWARE_SERVICES.get(town)
+        if svc is None:
+            svc = _AUTOWARE_SERVICES[town] = AutowareService(town, perception=getattr(args, "autoware_perception", "centerpoint/centerpoint"))
+        run_payload = svc.evaluate(spec, timeout=args.eval_timeout_seconds)
+    except ServiceError as exc:
+        return _failure_row(time.time() - started, f"autoware service: {exc}")
+    row = _row_from_run(run_payload, time.time() - started)
+    runs = work_dir / "runs"; runs.mkdir(exist_ok=True)
+    _write_json(runs / f"{candidate_id}.json", run_payload)
+    row["run_json_path"] = str(runs / f"{candidate_id}.json")
+    row["subprocess_returncode"] = 0
+    stream = svc.semantic_stream(candidate_id)
+    if stream is not None:
+        sem = work_dir / "semantic"; sem.mkdir(exist_ok=True)
+        import shutil
+        shutil.copy2(stream, sem / stream.name)
+    return row
+
+
 def _run_evaluation_diagnostics(args: argparse.Namespace, spec_payload: dict, candidate_id: str, work_dir: Path, port: int) -> dict:
     work_dir.mkdir(parents=True, exist_ok=True)
     spec_path = work_dir / f"{candidate_id}.json"
@@ -814,6 +862,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--mode", choices=("server", "diagnostics"), default="server")
     parser.add_argument("--server-port", type=int, default=2000)
+    parser.add_argument("--backend", choices=("carla", "autoware"), default="carla",
+                        help="carla: harness-driven ADS (CARLA 0.9.16, one subprocess per candidate). autoware: persistent Autoware service (CARLA 0.9.15).")
+    parser.add_argument("--autoware-perception", default="centerpoint/centerpoint", help="Autoware lidar_detection_model (type/name).")
     parser.add_argument("--carla-root", type=Path, default=DEFAULT_CARLA_ROOT)
     parser.add_argument("--python-executable", type=Path, default=DEFAULT_PYTHON)
     parser.add_argument(
@@ -1079,9 +1130,12 @@ def main() -> None:
         parser.error(str(exc))
 
     run_evaluation = _run_evaluation_server if args.mode == "server" else _run_evaluation_diagnostics
+    if args.backend == "autoware":
+        run_evaluation = _run_evaluation_autoware
     seen, done_count = _load_done(rows_path, space)
     rng = random.Random(args.seed)
-    state = PolicyState(args.policy, space)
+    from baselines import make_policy_state
+    state = make_policy_state(args.policy, space, PolicyState)
     for row in _iter_rows(rows_path):
         if row.get("rng_state"):
             version, internal, gaussian = row["rng_state"]
@@ -1093,6 +1147,7 @@ def main() -> None:
             _semantic_tiebreak(row, args.policy, engine_active=engine_active),
             run_obligations=set(row.get("engine_run_obligations") or []) if engine_active else None,
             covered_before=set(engine_state.suite_covered) if engine_state is not None else None,
+            row=row,
         )
         if engine_state is not None:
             engine_state.restore_from_row(row)
@@ -1277,7 +1332,8 @@ def main() -> None:
             else:
                 state.observe(evaluated_values, fitness_value, tiebreak_value,
                               run_obligations=set(row.get("engine_run_obligations") or []) if engine_active else None,
-                              covered_before=covered_before)
+                              covered_before=covered_before,
+                              row=row)
         print(json.dumps({
             "eval": row.get("eval_index"),
             "radius": row.get("radius"),

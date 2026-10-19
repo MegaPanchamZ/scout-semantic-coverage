@@ -203,3 +203,35 @@ Gaussian KDE, and the selected value depends on float32 rounding in the PCA
 projection (BLAS thread count). The coverage observer pins BLAS to one thread
 so the scores are deterministic for a given setup. The reported LSA numbers
 were computed this way.
+
+## RQ3 safety campaign (Autoware Universe)
+
+To evaluate closed-loop search effectiveness on a modular ROS 2 driving stack
+where neuron-coverage criteria (KMNC, LSA) are inapplicable, the repository
+includes an Autoware Universe bridge (`scripts/autoware_bridge/`), search-based
+baselines (`research/experiments/EXP-020-policy-comparison/proof-of-concept/baselines.py`),
+and the 900-episode RQ3 Autoware campaign runner and aggregator (`scripts/rq3/`).
+
+- **Protocol & Baselines**: See [`research/docs/rq3-protocol.md`](docs/rq3-protocol.md)
+  and [`research/docs/rq3-baselines.md`](docs/rq3-baselines.md) for the locked
+  protocol (`5 methods × 2 Town01 routes × 3 matched seeds × 30 evaluations = 900 episodes`),
+  hyperparameter tables for `AV-Fuzzer (re-impl.)` and `Causal-Fuzzer-style`,
+  and the post-hoc criticality-stratified `semantic_crit` variant.
+- **Bridge Setup**: See [`scripts/autoware_bridge/README.md`](../scripts/autoware_bridge/README.md)
+  for running CARLA 0.9.15 alongside the TumFTM `carla-autoware-universe` Docker
+  image with live 3D LiDAR `CenterPoint` perception (`centerpoint/centerpoint`).
+- **Running the Campaign**:
+  ```bash
+  research/.venv/bin/python scripts/rq3/run_autoware_campaign.py results/autoware/rq3 \
+    --evals 30 --seeds 1 2 3 \
+    --methods random semantic semantic_crit avfuzzer causal \
+    --routes town01_spawn0_goal82 town01_spawn115_goal206
+  ```
+- **Offline Aggregation & Tables**:
+  All 900 evaluated rows (`30 runs × 30 evaluations`, 0 infrastructure errors)
+  and pre-generated summary tables/plots are archived under `results/autoware/rq3/`.
+  To regenerate the Markdown/LaTeX tables and cumulative violation curves from
+  `rows.jsonl`:
+  ```bash
+  research/.venv/bin/python scripts/rq3/rq3_aggregate.py results/autoware/rq3
+  ```

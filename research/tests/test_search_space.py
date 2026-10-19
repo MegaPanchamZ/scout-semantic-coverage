@@ -306,9 +306,20 @@ def test_policy_search_row_resume_reads_old_and_new_rows() -> None:
 
 def test_all_four_policies_share_one_space_object() -> None:
     module = _load_policy_search()
-    assert set(module.POLICIES) == {"random", "lsa", "kmnc", "semantic", "critonly"}
+    assert set(module.POLICIES) == {
+        "random",
+        "lsa",
+        "kmnc",
+        "semantic",
+        "critonly",
+        "avfuzzer",
+        "causal",
+        "semantic_crit",
+    }
+    from baselines import make_policy_state
+
     space = make_campaign_space(name="campaign-shared", seed=23)
-    states = [module.PolicyState(policy, space) for policy in module.POLICIES]
+    states = [make_policy_state(policy, space, module.PolicyState) for policy in module.POLICIES]
     assert all(state.space is space for state in states)
     assert {state.space.signature() for state in states} == {space.signature()}
     assert {state.space.dimensions() for state in states} == {space.dimensions()}
@@ -317,7 +328,11 @@ def test_all_four_policies_share_one_space_object() -> None:
         rng = random.Random(13)
         candidate = state.next_candidate(rng, set())
         space.validate(candidate.values)
-        state.observe(candidate.to_dict(), 1.0)
+        state.observe(
+            candidate.to_dict(),
+            1.0,
+            row={"min_gap_m": 2.5, "semantic_covered_signatures": ["crossing_path(pedestrian,ego)"]},
+        )
         followed_up = state.next_candidate(rng, set())
         space.validate(followed_up.values)
 

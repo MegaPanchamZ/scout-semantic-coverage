@@ -1,0 +1,42 @@
+{
+ "scenario_id": "town01_spawn0_goal82_threshold_crossing",
+ "town": "Town01",
+ "agent_kind": "autoware",
+ "succeeded": true,
+ "dry_run": false,
+ "ticks_executed": 353,
+ "reached_goal": false,
+ "terminated_by_collision": true,
+ "collision_count": 1,
+ "collisions": [
+  {
+   "frame": 5756,
+   "actor_id": 207,
+   "actor_type": "walker.pedestrian.0013",
+   "intensity": 33.82105829160057,
+   "injected_actor": true
+  }
+ ],
+ "safety_metrics": {
+  "min_ttc": Infinity,
+  "near_collisions": 0,
+  "stuck_frames": 8,
+  "rule_violations": 0
+ },
+ "notes": [
+  "CARLA->Autoware frame check: |ego - odom| = 1.39 m",
+  "engaged after 2.0s",
+  "Threshold adversary triggered at tick 89 (distance 19.85 m).",
+  "Terminated on first collision with walker.pedestrian.0013"
+ ],
+ "metadata": {
+  "carla_version": "0.9.15",
+  "sim_seconds": 17.65,
+  "budget_sim_seconds": 50.0,
+  "bridge_dt": 0.05,
+  "spec_dt": 0.1,
+  "goal_spawn_index": 82,
+  "controller": "threshold_crossing_adversary",
+  "wall_seconds": 29.1
+ }
+}

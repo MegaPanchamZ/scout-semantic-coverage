@@ -16,10 +16,10 @@ if [ -z "$WORKER" ]; then
   echo "usage: run_search_matrix.sh A or B" >&2
   exit 2
 fi
-PY=/mnt/DevDrive/development/MRES/research/.venv/bin/python
-SEARCH=/mnt/DevDrive/development/MRES/research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_search.py
-BASE=/mnt/DevDrive/development/MRES/research/experiments/EXP-020-policy-comparison/artifacts/base_specs
-OUT=/mnt/DevDrive/development/MRES/research/logs/policy_search
+PY=research/.venv/bin/python
+SEARCH=research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_search.py
+BASE=research/experiments/EXP-020-policy-comparison/artifacts/base_specs
+OUT=research/logs/policy_search
 EVALS_PER_POLICY=30
 CONTROLS=8
 

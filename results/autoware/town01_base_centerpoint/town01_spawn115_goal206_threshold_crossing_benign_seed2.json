@@ -1,0 +1,34 @@
+{
+ "scenario_id": "town01_spawn115_goal206_threshold_crossing_benign_seed2",
+ "town": "Town01",
+ "agent_kind": "autoware",
+ "succeeded": true,
+ "dry_run": false,
+ "ticks_executed": 864,
+ "reached_goal": true,
+ "terminated_by_collision": false,
+ "collision_count": 0,
+ "collisions": [],
+ "safety_metrics": {
+  "min_ttc": Infinity,
+  "near_collisions": 0,
+  "stuck_frames": 32,
+  "rule_violations": 49
+ },
+ "notes": [
+  "CARLA->Autoware frame check: |ego - odom| = 1.41 m",
+  "engaged after 2.1s",
+  "Failed to spawn threshold-triggered walker adversary."
+ ],
+ "metadata": {
+  "carla_version": "0.9.15",
+  "sim_seconds": 43.2,
+  "budget_sim_seconds": 50.0,
+  "bridge_dt": 0.05,
+  "spec_dt": 0.1,
+  "goal_spawn_index": 206,
+  "controller": "threshold_crossing_adversary",
+  "wall_seconds": 66.9,
+  "retried": null
+ }
+}

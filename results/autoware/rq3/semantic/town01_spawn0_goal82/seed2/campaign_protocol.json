@@ -1,0 +1,23 @@
+{
+  "version": "scout-search-v2",
+  "policy": "semantic",
+  "seed": 2,
+  "agent_kind": "autoware",
+  "pcla_agent": "if_if",
+  "agent_repo": "None",
+  "agent_config": "None",
+  "agent_module": null,
+  "quality_level": "Low",
+  "max_ticks": 500,
+  "control": false,
+  "paired_controls": false,
+  "frozen_base": false,
+  "engine_metrics": false,
+  "search_space": "[{\"decimals\":2,\"default\":20.0,\"description\":\"Pilot range kept for continuity; walker releases when the ego enters this radius.\",\"high\":35.0,\"kind\":\"float\",\"low\":5.0,\"name\":\"trigger_radius_m\",\"runtime\":\"live\",\"sigma\":3.0,\"spec_path\":\"controller_params.trigger_radius_m\",\"step\":null},{\"decimals\":2,\"default\":1.8,\"description\":\"Walker release speed in m/s (0.8 stroll to 4.0 run).\",\"high\":4.0,\"kind\":\"float\",\"low\":0.8,\"name\":\"subject_speed_mps\",\"runtime\":\"live\",\"sigma\":0.4,\"spec_path\":\"controller_params.speed\",\"step\":null},{\"decimals\":2,\"default\":7.0,\"description\":\"Lane-perpendicular staging distance from the route anchor to spawn and destination.\",\"high\":14.0,\"kind\":\"lateral_offset_m\",\"low\":1.0,\"name\":\"staging_lateral_offset_m\",\"runtime\":\"spec-baked\",\"sigma\":1.5,\"spec_path\":\"controller_params.spawn_transform.location\",\"step\":null},{\"decimals\":2,\"default\":0.0,\"description\":\"Along-route staging displacement from the route anchor in m (positive = ahead of the ego); -10 m stays inside the 12 m generator trigger lead, +30 m covers the downstream junction approach.\",\"high\":30.0,\"kind\":\"longitudinal_offset_m\",\"low\":-10.0,\"name\":\"staging_longitudinal_offset_m\",\"runtime\":\"spec-baked\",\"sigma\":4.0,\"spec_path\":\"controller_params.spawn_transform.location\",\"step\":null},{\"decimals\":3,\"default\":400.0,\"description\":\"1-based logical tick deadline for adversary release (10 Hz, so seconds = tick / 10); the distance trigger still fires first when the ego arrives earlier.\",\"high\":400.0,\"kind\":\"int\",\"low\":10.0,\"name\":\"trigger_tick\",\"runtime\":\"live\",\"sigma\":40.0,\"spec_path\":\"controller_params.trigger_tick\",\"step\":10.0}]",
+  "hazard_search": false,
+  "stall_limit": 12,
+  "base_spec": "f2d952a1e3da1dfd82e7b20cb6a6f3001cce4e7b36b04cc3fc84c36dee58f563",
+  "oracle": null,
+  "coverage_profile": "40377cfdd37b11f938cebcf88697c54f0c80eac694a0e6615b09998de4e88653",
+  "hazard_specs": {}
+}

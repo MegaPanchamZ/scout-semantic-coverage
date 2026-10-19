@@ -1,0 +1,16 @@
+\begin{table}[t]
+\centering
+\small
+\caption{RQ3 on Autoware: method-independent outcomes after the shared initial scenario (6 runs per method = routes $\times$ seeds, 29 search evaluations each). $p$: one-sided Mann--Whitney U on violations, \toolname{} vs.\ the method, Holm-corrected.}
+\label{tab:rq3-results}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+Method & Violations & Evals to 1st & Wall s to 1st & Distinct & Runs w/ viol. & $p$ \\
+\midrule
+\toolname{} & 1.33$\pm$2.21 & 4 & 260 & 1.17 & 2/6 & -- \\
+avfuzzer & 2.50$\pm$1.89 & 22 & 1323 & 1.33 & 5/6 & 1.000 \\
+causal & 1.50$\pm$1.89 & 3 & 196 & 1.50 & 3/6 & 1.000 \\
+random & 0.33$\pm$0.47 & 8 & 545 & 0.33 & 2/6 & 1.000 \\
+\bottomrule
+\end{tabular}
+\end{table}

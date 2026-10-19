@@ -1,0 +1,192 @@
+[
+ {
+  "scenario_id": "town01_spawn0_goal82_threshold_crossing",
+  "ok": true,
+  "reached_goal": false,
+  "collision": true,
+  "sim_s": 17.65,
+  "wall_s": 29.1
+ },
+ {
+  "scenario_id": "town01_spawn0_goal82_threshold_crossing_benign_seed0",
+  "ok": true,
+  "reached_goal": false,
+  "collision": false,
+  "sim_s": 50.0,
+  "wall_s": 74.1
+ },
+ {
+  "scenario_id": "town01_spawn0_goal82_threshold_crossing_benign_seed1",
+  "ok": true,
+  "reached_goal": false,
+  "collision": false,
+  "sim_s": 50.0,
+  "wall_s": 72.6
+ },
+ {
+  "scenario_id": "town01_spawn0_goal82_threshold_crossing_benign_seed2",
+  "ok": true,
+  "reached_goal": false,
+  "collision": false,
+  "sim_s": 50.0,
+  "wall_s": 74.2
+ },
+ {
+  "scenario_id": "town01_spawn115_goal206_threshold_crossing",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 39.6,
+  "wall_s": 62.6
+ },
+ {
+  "scenario_id": "town01_spawn115_goal206_threshold_crossing_benign_seed0",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 43.55,
+  "wall_s": 67.2
+ },
+ {
+  "scenario_id": "town01_spawn115_goal206_threshold_crossing_benign_seed1",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 40.15,
+  "wall_s": 64.3
+ },
+ {
+  "scenario_id": "town01_spawn115_goal206_threshold_crossing_benign_seed2",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 40.25,
+  "wall_s": 64.2
+ },
+ {
+  "scenario_id": "town01_spawn195_goal197_threshold_crossing",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 16.05,
+  "wall_s": 31.5
+ },
+ {
+  "scenario_id": "town01_spawn195_goal197_threshold_crossing_benign_seed0",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 15.65,
+  "wall_s": 30.2
+ },
+ {
+  "scenario_id": "town01_spawn195_goal197_threshold_crossing_benign_seed1",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 14.65,
+  "wall_s": 29.2
+ },
+ {
+  "scenario_id": "town01_spawn195_goal197_threshold_crossing_benign_seed2",
+  "ok": false,
+  "error": "RuntimeError: set_route_points failed: The planned route is empty.",
+  "wall_s": 9.4
+ },
+ {
+  "scenario_id": "town01_spawn55_goal154_threshold_crossing",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 46.0,
+  "wall_s": 67.5
+ },
+ {
+  "scenario_id": "town01_spawn55_goal154_threshold_crossing_benign_seed0",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 45.45,
+  "wall_s": 65.6
+ },
+ {
+  "scenario_id": "town01_spawn55_goal154_threshold_crossing_benign_seed1",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 45.85,
+  "wall_s": 69.9
+ },
+ {
+  "scenario_id": "town01_spawn55_goal154_threshold_crossing_benign_seed2",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 45.65,
+  "wall_s": 67.9
+ },
+ {
+  "scenario_id": "town01_spawn68_goal218_threshold_crossing",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 26.0,
+  "wall_s": 43.9
+ },
+ {
+  "scenario_id": "town01_spawn68_goal218_threshold_crossing_benign_seed0",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 26.2,
+  "wall_s": 43.7
+ },
+ {
+  "scenario_id": "town01_spawn68_goal218_threshold_crossing_benign_seed1",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 26.2,
+  "wall_s": 89.0
+ },
+ {
+  "scenario_id": "town01_spawn68_goal218_threshold_crossing_benign_seed2",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 26.05,
+  "wall_s": 43.8
+ },
+ {
+  "scenario_id": "town01_spawn82_goal200_threshold_crossing",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 25.9,
+  "wall_s": 45.2
+ },
+ {
+  "scenario_id": "town01_spawn82_goal200_threshold_crossing_benign_seed0",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 26.0,
+  "wall_s": 47.6
+ },
+ {
+  "scenario_id": "town01_spawn82_goal200_threshold_crossing_benign_seed1",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 25.95,
+  "wall_s": 42.6
+ },
+ {
+  "scenario_id": "town01_spawn82_goal200_threshold_crossing_benign_seed2",
+  "ok": true,
+  "reached_goal": true,
+  "collision": false,
+  "sim_s": 25.8,
+  "wall_s": 42.3
+ }
+]

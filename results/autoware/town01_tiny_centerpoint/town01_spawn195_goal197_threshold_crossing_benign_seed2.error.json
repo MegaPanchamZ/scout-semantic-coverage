@@ -1,0 +1,6 @@
+{
+ "scenario_id": "town01_spawn195_goal197_threshold_crossing_benign_seed2",
+ "ok": false,
+ "error": "RuntimeError: set_route_points failed: The planned route is empty.",
+ "wall_s": 9.4
+}

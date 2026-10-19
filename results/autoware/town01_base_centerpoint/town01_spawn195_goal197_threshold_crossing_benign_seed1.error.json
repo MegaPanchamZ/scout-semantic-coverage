@@ -1,0 +1,7 @@
+{
+ "scenario_id": "town01_spawn195_goal197_threshold_crossing_benign_seed1",
+ "retried": "RuntimeError: route request failed: The planned route is empty.",
+ "ok": false,
+ "error": "RuntimeError: route request failed: The planned route is empty.",
+ "wall_s": 18.6
+}
