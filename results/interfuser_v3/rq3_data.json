@@ -1,0 +1,6454 @@
+{
+ "InterFuser": {
+  "runs": [
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn0_goal82",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 2,
+     "Any": 2
+    },
+    "first": 2
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn0_goal82",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 2
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn0_goal82",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn0_goal82",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 2
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn195_goal197",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 2,
+     "Any": 2,
+     "Collision": 1
+    },
+    "first": 2
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn195_goal197",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {},
+    "first": null
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn195_goal197",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {},
+    "first": null
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn195_goal197",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 5
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn68_goal218",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 3,
+     "Low TTC": 5,
+     "Stuck / route failure": 3,
+     "Any": 5
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn68_goal218",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 3,
+     "Any": 3,
+     "Collision": 2,
+     "Stuck / route failure": 2
+    },
+    "first": 2
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn68_goal218",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 5,
+     "Any": 5,
+     "Collision": 4,
+     "Stuck / route failure": 4
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn68_goal218",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 3,
+     "Low TTC": 3,
+     "Stuck / route failure": 3,
+     "Any": 3
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn82_goal200",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 3,
+     "Low TTC": 5,
+     "Any": 5
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn82_goal200",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 2,
+     "Low TTC": 4,
+     "Any": 4
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn82_goal200",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 3,
+     "Any": 3,
+     "Collision": 1
+    },
+    "first": 2
+   },
+   {
+    "seed": "seed-13",
+    "route": "town01_spawn82_goal200",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 2,
+     "Low TTC": 2,
+     "Any": 2
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn0_goal82",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 4
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn0_goal82",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn0_goal82",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 5
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn0_goal82",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {},
+    "first": null
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn195_goal197",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 2,
+     "Any": 2,
+     "Collision": 1
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn195_goal197",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {},
+    "first": null
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn195_goal197",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {},
+    "first": null
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn195_goal197",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {},
+    "first": null
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn68_goal218",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 3,
+     "Low TTC": 3,
+     "Stuck / route failure": 3,
+     "Any": 3
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn68_goal218",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 2,
+     "Low TTC": 3,
+     "Stuck / route failure": 2,
+     "Any": 3
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn68_goal218",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 1,
+     "Low TTC": 3,
+     "Stuck / route failure": 1,
+     "Any": 3
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn68_goal218",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 2,
+     "Low TTC": 2,
+     "Stuck / route failure": 3,
+     "Any": 2
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn82_goal200",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 2,
+     "Low TTC": 2,
+     "Any": 2
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn82_goal200",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 3,
+     "Low TTC": 3,
+     "Any": 3
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn82_goal200",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 2
+   },
+   {
+    "seed": "seed-14",
+    "route": "town01_spawn82_goal200",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 1,
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn0_goal82",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 3,
+     "Any": 3
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn0_goal82",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn0_goal82",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 5
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn0_goal82",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 2,
+     "Any": 2
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn195_goal197",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Low TTC": 2,
+     "Any": 3,
+     "Collision": 1
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn195_goal197",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 1,
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn195_goal197",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 2,
+     "Any": 2,
+     "Low TTC": 1
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn195_goal197",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 1,
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn68_goal218",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Stuck / route failure": 3,
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 4
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn68_goal218",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Stuck / route failure": 2,
+     "Collision": 1,
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 5
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn68_goal218",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Stuck / route failure": 5,
+     "Collision": 3,
+     "Low TTC": 3,
+     "Any": 3
+    },
+    "first": 2
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn68_goal218",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 3,
+     "Low TTC": 3,
+     "Stuck / route failure": 3,
+     "Any": 3
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn82_goal200",
+    "policy": "semantic_crit",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Stuck / route failure": 2,
+     "Collision": 1,
+     "Low TTC": 2,
+     "Any": 2
+    },
+    "first": 3
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn82_goal200",
+    "policy": "semantic",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Stuck / route failure": 2,
+     "Collision": 1,
+     "Low TTC": 1,
+     "Any": 1
+    },
+    "first": 5
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn82_goal200",
+    "policy": "critonly",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 4,
+     "Low TTC": 5,
+     "Stuck / route failure": 2,
+     "Any": 5
+    },
+    "first": 1
+   },
+   {
+    "seed": "seed-15",
+    "route": "town01_spawn82_goal200",
+    "policy": "random",
+    "evals": 5,
+    "pairs": 5,
+    "counts": {
+     "Collision": 1,
+     "Low TTC": 2,
+     "Stuck / route failure": 2,
+     "Any": 2
+    },
+    "first": 1
+   }
+  ],
+  "pairs": [
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 10,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "adjacent_lane(vehicle,ego)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 10,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 5,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 10,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 5,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "adjacent_lane(vehicle,ego)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "turning(ego)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 3,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "crossing_path(vehicle,ego)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 5,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "turning(ego)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 16,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "adjacent_lane(vehicle,ego)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "adjacent_lane(vehicle,ego)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 16,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 16,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "turning(ego)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "braking(pedestrian)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 14,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "braking(pedestrian)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)"
+    ],
+    "new_obligations": 1,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 14,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-13",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 20,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)"
+    ],
+    "new_obligations": 9,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "adjacent_lane(pedestrian,ego)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "stationary(pedestrian)"
+    ],
+    "new_obligations": 2,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "adjacent_lane(vehicle,ego)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 19,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)"
+    ],
+    "new_obligations": 9,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "adjacent_lane(pedestrian,ego)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "moving(pedestrian)",
+     "node(pedestrian)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 19,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 3,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 19,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)"
+    ],
+    "new_obligations": 9,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "stationary(pedestrian)"
+    ],
+    "new_obligations": 2,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 20,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "crossing_path(vehicle,ego)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 20,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "crossing_path(vehicle,ego)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 20,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 19,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 12,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 12,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 12,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 12,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 14,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 14,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)"
+    ],
+    "new_obligations": 1,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 14,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-14",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)"
+    ],
+    "new_obligations": 8,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "stationary(pedestrian)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "adjacent_lane(pedestrian,ego)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 2,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 6,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 2,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn0_goal82",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(vehicle,ego)",
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "crossing_path(vehicle,ego)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: oncoming)",
+     "hazard(other: start_stop_or_stationary)",
+     "hazard(other: turning)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "on_road(vehicle)",
+     "oncoming(vehicle,ego)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(vehicle)"
+    ],
+    "new_obligations": 6,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "turning(ego)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 12,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "turning(ego)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 4,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "turning(ego)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 5,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 4,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn195_goal197",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 5,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 2,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 1,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn68_goal218",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [],
+    "new_obligations": 0,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "crossing_path(pedestrian,ego)",
+     "hazard(other: pedestrian)",
+     "hazard(pedestrian_in_path)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "obstructing(pedestrian,ego)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 14,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "semantic_crit",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: ahead_or_waiting)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(other: pedestrian)",
+    "obligations": [],
+    "new_obligations": 0,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: oncoming)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": "hazard(pedestrian_in_path)",
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "semantic",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": "hazard(other: turning)",
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 1,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "critonly",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Collision",
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 0,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 15,
+    "attributable": [
+     "Collision",
+     "Low TTC",
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 1,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [],
+    "new_obligations": 0,
+    "attributable": [
+     "Stuck / route failure"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 2,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)"
+    ],
+    "new_obligations": 0,
+    "attributable": [
+     "Low TTC"
+    ]
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 3,
+    "template": "pedestrian_crossing",
+    "hazard_target": null,
+    "obligations": [
+     "adjacent_lane(pedestrian,ego)",
+     "approaching(pedestrian,ego)",
+     "braking(pedestrian)",
+     "in_front_of(pedestrian,ego)",
+     "jaywalking(pedestrian)",
+     "moving(pedestrian)",
+     "node(pedestrian)",
+     "on_road(pedestrian)",
+     "same_lane(pedestrian,ego)",
+     "stationary(pedestrian)",
+     "waiting(pedestrian)"
+    ],
+    "new_obligations": 11,
+    "attributable": []
+   },
+   {
+    "policy": "random",
+    "route": "town01_spawn82_goal200",
+    "seed": "seed-15",
+    "eval": 4,
+    "template": "lead_vehicle_braking",
+    "hazard_target": null,
+    "obligations": [
+     "approaching(vehicle,ego)",
+     "braking(vehicle)",
+     "hazard(other: ahead_or_waiting)",
+     "hazard(other: start_stop_or_stationary)",
+     "in_front_of(vehicle,ego)",
+     "moving(vehicle)",
+     "node(vehicle)",
+     "obstructing(vehicle,ego)",
+     "on_road(vehicle)",
+     "same_lane(vehicle,ego)",
+     "stationary(vehicle)",
+     "turning(ego)"
+    ],
+    "new_obligations": 1,
+    "attributable": []
+   }
+  ],
+  "invalid": {}
+ }
+}

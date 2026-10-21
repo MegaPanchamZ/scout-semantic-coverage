@@ -1,0 +1,102 @@
+{
+  "semantic": {
+    "label": "SCOUT",
+    "runs": 12,
+    "mean_obligations": 31,
+    "sd_obligations": 2.7,
+    "pct_mapped_86": 36.0,
+    "pct_full_103": 30.1,
+    "pooled_obligations": 38,
+    "mean_online_signatures": 20.17,
+    "sd_online_signatures": 2.44,
+    "per_run_obligations": [
+      35,
+      35,
+      32,
+      29,
+      29,
+      31,
+      32,
+      29,
+      34,
+      31,
+      28,
+      27
+    ]
+  },
+  "semantic_crit": {
+    "label": "SCOUT_crit",
+    "runs": 12,
+    "mean_obligations": 30.58,
+    "sd_obligations": 1.93,
+    "pct_mapped_86": 35.6,
+    "pct_full_103": 29.7,
+    "pooled_obligations": 38,
+    "mean_online_signatures": 19.92,
+    "sd_online_signatures": 2.5,
+    "per_run_obligations": [
+      30,
+      31,
+      31,
+      30,
+      31,
+      35,
+      32,
+      29,
+      27,
+      31,
+      31,
+      29
+    ]
+  },
+  "random": {
+    "label": "Random",
+    "runs": 12,
+    "mean_obligations": 30.58,
+    "sd_obligations": 2.43,
+    "pct_mapped_86": 35.6,
+    "pct_full_103": 29.7,
+    "pooled_obligations": 38,
+    "mean_online_signatures": 19.92,
+    "sd_online_signatures": 2.61,
+    "per_run_obligations": [
+      35,
+      32,
+      31,
+      29,
+      31,
+      31,
+      31,
+      29,
+      34,
+      30,
+      27,
+      27
+    ]
+  },
+  "critonly": {
+    "label": "Criticality-only",
+    "runs": 12,
+    "mean_obligations": 17,
+    "sd_obligations": 2.56,
+    "pct_mapped_86": 19.8,
+    "pct_full_103": 16.5,
+    "pooled_obligations": 23,
+    "mean_online_signatures": 12.75,
+    "sd_online_signatures": 2.38,
+    "per_run_obligations": [
+      16,
+      20,
+      16,
+      16,
+      23,
+      20,
+      16,
+      16,
+      15,
+      15,
+      15,
+      16
+    ]
+  }
+}

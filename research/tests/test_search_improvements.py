@@ -129,3 +129,34 @@ def test_target_progress_prefers_critical_when_covered(monkeypatch):
 def test_criticality_ignores_peak_deceleration():
     slam = {"safety_raw": {"min_ttc_s": 9.0, "min_vehicle_distance_m": 30.0, "max_deceleration_mps2": 27.0}}
     assert criticality_score(slam) < 0.2
+
+
+def test_exploit_tracker_stops_holding_at_max_criticality():
+    t = ExploitTracker(patience=3, cap=8)
+    t.observe("hazard(other: ahead_or_waiting)", True, 2.0)
+    assert not t.holding("hazard(other: ahead_or_waiting)")
+
+
+def test_obligation_scheduler_alternates_templates_on_advance():
+    universe = {
+        "hazard(other: ahead_or_waiting)",
+        "hazard(other: oncoming)",
+        "hazard(other: pedestrian)",
+    }
+    sch = ObligationScheduler(uncovered=set(universe))
+    first, tmpl1 = sch.select(universe, set())
+    assert first == "hazard(other: ahead_or_waiting)"
+    assert tmpl1 == "lead_vehicle_braking"
+    second, tmpl2 = sch.select(universe - {first}, {first})
+    assert second == "hazard(other: pedestrian)"
+    assert tmpl2 == "pedestrian_crossing"
+
+
+def test_hazard_policy_state_rejects_zero_fitness_with_positive_tiebreak():
+    st = ps._HazardPolicyState("semantic", epsilon=0.0)
+    cand = CROSSING_SPACE.defaults()
+    st.observe("pedestrian_crossing", "hazard(other: pedestrian)", cand, 0.0, 2.0, witnesses={"jaywalking(pedestrian)"}, covered_before=set())
+    assert "target:hazard(other: pedestrian)" not in st.elites
+    assert "pedestrian_crossing" not in st.template_elites
+    assert st.adapt["target:hazard(other: pedestrian)"].scale > 1.0
+

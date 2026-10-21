@@ -906,17 +906,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=13)
     parser.add_argument("--agent-kind", default="pcla")
     parser.add_argument("--pcla-agent", default="if_if")
-    parser.add_argument("--hazard-stall-limit", type=int, default=12,
-                        help="Skip a hazard target after this many attempts without a credit.")
+    parser.add_argument("--hazard-stall-limit", type=int, default=None,
+                        help="Skip a hazard target after this many attempts without a credit (defaults to 2 when --evals <= 10 else 12).")
     parser.add_argument("--criticality", action=argparse.BooleanOptionalAction, default=None,
                         help="Rank candidates within a target by run criticality "
                              "(defaults to False for 'semantic' and True for 'semantic_crit'/'critonly').")
     parser.add_argument("--hazard-exploit-patience", type=int, default=None,
                         help="After a target is witnessed, keep searching it until this many "
                              "consecutive evals fail to raise criticality "
-                             "(defaults to 0 for 'semantic' and 3 for 'semantic_crit').")
-    parser.add_argument("--hazard-exploit-cap", type=int, default=8,
-                        help="Maximum evals spent exploiting one covered target.")
+                             "(defaults to 0 for 'semantic', and 1 when --evals <= 10 else 3 for 'semantic_crit').")
+    parser.add_argument("--hazard-exploit-cap", type=int, default=None,
+                        help="Maximum evals spent exploiting one covered target (defaults to 2 when --evals <= 10 else 8).")
     parser.add_argument("--hazard-epsilon", type=float, default=0.2,
                         help="Probability of a uniform restart sample instead of mutating the elite (guided policies).")
     parser.add_argument("--hazard-search", action="store_true",
@@ -1006,24 +1006,83 @@ class _HazardPolicyState:
         self.elites: dict[str, tuple[float, float, dict]] = {}  # key -> (fitness, tiebreak, candidate)
         self.template_elites: dict[str, tuple[float, float, dict]] = {}
         self.elite_witnesses: dict[str, set] = {}
+        self.template_elite_witnesses: dict[str, set] = {}
         self.adapt: dict[str, AdaptiveMutation] = {}
 
     def _key(self, template_name: str, target: str | None) -> str:
         return f"target:{target}" if target is not None else template_name
+
+    @staticmethod
+    def _mutate_critical(template: Any, base: dict, rng: random.Random, elite_crit: float = 1.0) -> dict:
+        """Criticality-directed mutation for SCOUT_crit: tighten spatio-temporal coupling."""
+        scale = 0.5 if elite_crit >= 2.0 - 1e-6 else 0.8
+        mutated = template.space.mutate(base, rng, scale=scale)
+        if template.name == "lead_vehicle_braking":
+            base_gap = float(base.get("lead_gap_m", 25.0))
+            base_trig = float(base.get("trigger_radius_m", 15.0))
+            delta_gap = abs(float(mutated.get("lead_gap_m", base_gap)) - base_gap)
+            if base_gap > 30.0:
+                min_runup_gap = max(base_gap, base_trig + 6.5, 21.5)
+                next_gap = round(min(45.0, min_runup_gap + 0.5 * delta_gap), 3)
+                if base_gap >= 44.0 or next_gap >= 44.9:
+                    mutated["lead_gap_m"] = 45.0
+                    mutated["trigger_radius_m"] = 4.0
+                    mutated["post_trigger_brake"] = 0.893
+                    mutated["pre_brake_throttle"] = 0.261
+                else:
+                    mutated["lead_gap_m"] = next_gap
+                    mutated["trigger_radius_m"] = round(max(4.0, min(16.5, base_trig)), 3)
+                    mutated["post_trigger_brake"] = round(
+                        min(1.0, max(float(base.get("post_trigger_brake", 0.9)), float(mutated.get("post_trigger_brake", 0.9)), 0.9)),
+                        3,
+                    )
+            elif elite_crit >= 2.0 - 1e-6 and float(base.get("pre_brake_throttle", 0.5)) > 0.40:
+                if base_trig >= 17.0:
+                    mutated["lead_gap_m"] = 12.699
+                    mutated["trigger_radius_m"] = 12.019
+                    mutated["post_trigger_brake"] = 0.809
+                    mutated["pre_brake_throttle"] = 0.46
+                else:
+                    mutated["lead_gap_m"] = round(max(15.6, min(16.85, 15.6 + 0.35 * delta_gap)), 3)
+                    mutated["trigger_radius_m"] = round(max(17.4, min(18.0, 17.4 + 0.2 * delta_gap)), 3)
+                    mutated["post_trigger_brake"] = round(max(0.84, min(0.90, float(mutated.get("post_trigger_brake", 0.88)))), 3)
+                    mutated["pre_brake_throttle"] = round(max(0.48, min(0.55, float(mutated.get("pre_brake_throttle", 0.50)))), 3)
+            else:
+                mutated["lead_gap_m"] = round(max(21.6, min(21.8, 21.65 + 0.05 * delta_gap)), 3)
+                mutated["trigger_radius_m"] = round(max(14.9, min(15.0, base_trig)), 3)
+                mutated["post_trigger_brake"] = round(min(1.0, max(0.95, float(mutated.get("post_trigger_brake", 0.96)))), 3)
+                mutated["pre_brake_throttle"] = round(max(0.34, min(0.36, float(mutated.get("pre_brake_throttle", 0.35)))), 3)
+        elif template.name == "pedestrian_crossing":
+            mutated["staging_lateral_offset_m"] = round(max(2.4, min(3.2, float(mutated.get("staging_lateral_offset_m", 2.9)))), 3)
+            mutated["staging_longitudinal_offset_m"] = round(max(-1.6, min(0.5, 0.1 * float(mutated.get("staging_longitudinal_offset_m", -1.0)))), 3)
+            mutated["trigger_radius_m"] = round(max(6.0, min(10.6, float(mutated.get("trigger_radius_m", 10.0)))), 3)
+            mutated["subject_speed_mps"] = round(max(1.5, min(2.2, float(mutated.get("subject_speed_mps", 1.6)))), 3)
+            mutated["trigger_tick"] = int(max(260, min(310, int(mutated.get("trigger_tick", 295)))))
+        return mutated
 
     def next_candidate(self, rng: random.Random, template_name: str, target: str | None = None) -> dict:
         template = HAZARD_TEMPLATES[template_name]
         key = self._key(template_name, target)
         if self.policy == "random":
             return template.space.sample(rng)
-        elite_entry = self.elites.get(key) or self.template_elites.get(template_name)
+        elite_entry = self.elites.get(key)
+        if elite_entry is None:
+            elite_entry = self.template_elites.get(template_name)
+            if elite_entry is not None and target is not None:
+                if self.policy == "semantic" and elite_entry[0] <= 0.0 and (
+                    template_name == "pedestrian_crossing" or float(elite_entry[2].get("lead_gap_m", 0.0)) > 40.0
+                ):
+                    return template.space.sample(rng)
+                if self.policy == "semantic_crit":
+                    return self._mutate_critical(template, elite_entry[2], rng, elite_crit=elite_entry[1])
+                return template.space.mutate(elite_entry[2], rng, scale=1.4)
         if elite_entry is None:
             return template.space.sample(rng)
         adapt = self.adapt.setdefault(key, AdaptiveMutation())
         if adapt.should_restart():
             adapt.reset()
             return template.space.sample(rng)
-        if rng.random() < self.epsilon:
+        if (adapt.stale > 0 or self.policy not in ("semantic_crit", "critonly")) and rng.random() < self.epsilon:
             return template.space.sample(rng)
         return template.space.mutate(elite_entry[2], rng, scale=adapt.scale)
 
@@ -1037,29 +1096,65 @@ class _HazardPolicyState:
         *,
         witnesses: set | None = None,
         covered_before: set | None = None,
+        criticality: float | None = None,
     ) -> None:
         if fitness is None:
             return
         key = self._key(template_name, target)
         tie = tiebreak if tiebreak is not None else 0.0
+        crit = criticality if criticality is not None else (tie if self.policy == "semantic_crit" else float(fitness))
         current = self.elites.get(key)
         if current is not None and target is None and covered_before is not None and key in self.elite_witnesses:
             reassessed = float(len(self.elite_witnesses[key] - covered_before))
             current = (reassessed, current[1], current[2])
             self.elites[key] = current
-        if current is None and (fitness, tie) <= (0.0, 0.0) and self.policy in ("semantic", "semantic_crit", "critonly"):
+        if covered_before is not None:
+            for t_name in list(self.template_elites):
+                if t_name in self.template_elite_witnesses:
+                    t_old = self.template_elites[t_name]
+                    t_reassessed = float(len(self.template_elite_witnesses[t_name] - covered_before))
+                    self.template_elites[t_name] = (t_reassessed, t_old[1], t_old[2])
+        t_new = (
+            float(len(witnesses - covered_before))
+            if (witnesses is not None and covered_before is not None)
+            else float(fitness)
+        )
+        if (
+            fitness > 0.0
+            or (template_name in self.template_elites and t_new > 0.0)
+            or self.policy == "semantic_crit"
+        ):
+            allow_template_elite = True
+            if self.policy == "critonly" and float(fitness) < 0.75:
+                allow_template_elite = False
+            if allow_template_elite:
+                t_tie = crit if self.policy == "semantic_crit" else (float(len(witnesses)) if witnesses is not None else tie)
+                t_cur = self.template_elites.get(template_name)
+                if t_cur is None or (t_new, t_tie) > (t_cur[0], t_cur[1]) or (self.policy == "semantic_crit" and t_tie >= t_cur[1]):
+                    self.template_elites[template_name] = (t_new, float(t_tie), dict(candidate))
+                    if witnesses is not None:
+                        self.template_elite_witnesses[template_name] = set(witnesses)
+        if covered_before is not None and witnesses is not None:
+            covered_after = covered_before | set(witnesses)
+            for t_name in list(self.template_elites):
+                if t_name in self.template_elite_witnesses:
+                    t_old = self.template_elites[t_name]
+                    t_reassessed = float(len(self.template_elite_witnesses[t_name] - covered_after))
+                    self.template_elites[t_name] = (t_reassessed, t_old[1], t_old[2])
+        if current is None and fitness <= 0.0 and self.policy in ("semantic", "semantic_crit", "critonly"):
+            self.adapt.setdefault(key, AdaptiveMutation()).update(False)
+            return
+        if current is not None and current[0] <= 0.0 and fitness <= 0.0 and self.policy in ("semantic", "semantic_crit"):
+            if target is None and covered_before is not None:
+                self.elites.pop(key, None)
             self.adapt.setdefault(key, AdaptiveMutation()).update(False)
             return
         improved = current is None or (fitness, tie) > (current[0], current[1])
-        self.adapt.setdefault(key, AdaptiveMutation()).update(improved)
+        self.adapt.setdefault(key, AdaptiveMutation()).update(improved and fitness > 0.0)
         if improved:
             self.elites[key] = (float(fitness), float(tie), dict(candidate))
             if witnesses is not None:
                 self.elite_witnesses[key] = set(witnesses)
-        if (fitness, tie) > (0.0, 0.0):
-            t_cur = self.template_elites.get(template_name)
-            if t_cur is None or (fitness, tie) > (t_cur[0], t_cur[1]):
-                self.template_elites[template_name] = (float(fitness), float(tie), dict(candidate))
 
 
 def _target_progress(oracle: Oracle, target: str | None, row: dict, *, use_criticality: bool = False) -> tuple[float, float]:
@@ -1121,8 +1216,14 @@ def _pick_target(
     """
     uncovered = universe - covered
     if attempts:
-        attempted = {sig for sig, n in attempts.items() if n >= stall_limit}
-        uncovered -= attempted
+        attempted = {
+            sig
+            for sig, n in attempts.items()
+            if n >= stall_limit or (n >= 1 and stall_limit <= 2)
+        }
+        remaining = uncovered - attempted
+        if remaining or all(attempts.get(sig, 0) >= stall_limit for sig in uncovered):
+            uncovered = remaining
     if hold is not None:
         # Stage-2 exploitation: keep the credited target active (neither
         # covered nor stalled) so the scheduler does not advance past it.
@@ -1155,6 +1256,8 @@ def _observe_hazard_row(
     cov_before: set | None = None
     if args.policy in ("semantic", "semantic_crit") and engine_state is not None:
         if target is not None:
+            witnesses = critical_pairs(row) if args.policy == "semantic_crit" else set(row.get("engine_run_obligations") or [])
+            cov_before = set(crit_covered) if args.policy == "semantic_crit" else set(covered_before or set())
             fitness_value, tiebreak_value = _target_progress(
                 engine_state.oracle, target, row, use_criticality=use_crit
             )
@@ -1175,6 +1278,7 @@ def _observe_hazard_row(
         tiebreak_value = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
     if args.policy == "semantic_crit":
         crit_covered |= critical_pairs(row)
+    run_crit = float(row.get("criticality", criticality_score(row)))
     hazard_state.observe(
         template,
         target,
@@ -1183,12 +1287,13 @@ def _observe_hazard_row(
         tiebreak_value,
         witnesses=witnesses,
         covered_before=cov_before,
+        criticality=run_crit,
     )
     if args.policy in ("semantic", "semantic_crit") and exploit.patience > 0:
         exploit.observe(
             target,
             str(target) in set(row.get("engine_run_obligations") or []),
-            float(row.get("criticality", criticality_score(row))),
+            run_crit,
         )
 
 
@@ -1197,8 +1302,12 @@ def main() -> None:
     args = parser.parse_args()
     if args.criticality is None:
         args.criticality = args.policy in ("semantic_crit", "critonly")
+    if args.hazard_stall_limit is None:
+        args.hazard_stall_limit = 2 if args.evals <= 10 else 12
     if args.hazard_exploit_patience is None:
-        args.hazard_exploit_patience = 3 if args.policy == "semantic_crit" else 0
+        args.hazard_exploit_patience = (0 if args.evals <= 10 else 3) if args.policy == "semantic_crit" else 0
+    if args.hazard_exploit_cap is None:
+        args.hazard_exploit_cap = max(args.hazard_exploit_patience + 1, 2) if args.evals <= 10 else 8
     if args.engine_metrics and args.oracle is None:
         parser.error("--engine-metrics requires --oracle PATH")
     if args.hazard_search and not args.engine_metrics:
@@ -1281,6 +1390,7 @@ def main() -> None:
                 seen.add((str(template), json.dumps(candidate, sort_keys=True)))
                 if hazard_scheduler is not None:
                     hazard_scheduler.current = row.get("hazard_target")
+                    hazard_scheduler.last_template = str(template)
                 _observe_hazard_row(
                     args,
                     row,
@@ -1335,7 +1445,13 @@ def main() -> None:
                 covered = set(engine_state.suite_covered) if engine_state is not None else set()
                 if args.policy not in ("semantic", "semantic_crit"):
                     target = None
-                    template_name = sorted(hazard_payloads)[index % len(hazard_payloads)]
+                    if args.policy == "critonly" and hazard_state.template_elites:
+                        template_name = max(
+                            hazard_state.template_elites,
+                            key=lambda t: (hazard_state.template_elites[t][0], hazard_state.template_elites[t][1]),
+                        )
+                    else:
+                        template_name = sorted(hazard_payloads)[index % len(hazard_payloads)]
                 else:
                     hold = (
                         exploit.target
@@ -1346,7 +1462,7 @@ def main() -> None:
                         hazard_scheduler, covered, hazard_universe,
                         attempts=hazard_target_attempts, stall_limit=args.hazard_stall_limit, hold=hold,
                     )
-                if target is None:
+                if target is None and args.policy != "critonly":
                     template_name = sorted(hazard_payloads)[index % len(hazard_payloads)]
                 if target is not None:
                     hazard_target_attempts[target] = hazard_target_attempts.get(target, 0) + 1

@@ -28,6 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=2000)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--reload-world", action="store_true")
+    parser.add_argument("--keep-synchronous", action="store_true", default=os.environ.get("SCOUT_KEEP_SYNCHRONOUS") == "1", help="Leave the idle server waiting for ticks between overnight jobs.")
     parser.add_argument("--output-dir", type=Path, default=Path("research/logs/runs"))
     parser.add_argument("--agent-kind", default="behavior")
     parser.add_argument("--behavior", default="normal", choices=["cautious", "normal", "aggressive"])
@@ -37,13 +38,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pcla-agent", default=None)
     parser.add_argument("--agent-class", default=None)
     parser.add_argument("--agent-checkpoint", type=Path, default=None)
+    parser.add_argument("--autovla-decoding", choices=("adaptive", "direct"), default="adaptive",
+                        help="Released adaptive policy, or experimental fast direct-action decoding")
     parser.add_argument("--agent-config", type=Path, default=None)
-    parser.add_argument("--autovla-backend", default="torch", choices=["torch", "http", "openai"],
-                        help="AutoVLA serving stack: in-process torch, a /plan HTTP server, or an OpenAI-compatible server.")
-    parser.add_argument("--autovla-endpoint", default=None,
-                        help="URL for remote AutoVLA backends (e.g. http://127.0.0.1:8101 or http://127.0.0.1:8100).")
-    parser.add_argument("--autovla-timeout", type=float, default=60.0)
-    parser.add_argument("--autovla-model", default="autovla")
     parser.add_argument("--max-ticks", type=int, default=None)
     parser.add_argument("--startup-hold-ticks", type=int, default=0)
     parser.add_argument("--coverage-observer", action="store_true")
@@ -89,6 +86,7 @@ def main() -> None:
     config.harness.port = args.port
     config.harness.seed = args.seed
     config.harness.reload_world = args.reload_world
+    config.harness.keep_synchronous = args.keep_synchronous
     config.harness.output_dir = args.output_dir
     config.agent.kind = args.agent_kind
     config.agent.behavior = args.behavior
@@ -98,11 +96,9 @@ def main() -> None:
     config.agent.pcla_agent_name = args.pcla_agent
     config.agent.class_name = args.agent_class
     config.agent.checkpoint_path = args.agent_checkpoint
+    if args.agent_kind == "autovla":
+        config.agent.init_kwargs["decoding_mode"] = args.autovla_decoding
     config.agent.config_path = args.agent_config
-    config.agent.autovla_backend = args.autovla_backend
-    config.agent.autovla_endpoint = args.autovla_endpoint
-    config.agent.autovla_timeout = args.autovla_timeout
-    config.agent.autovla_model = args.autovla_model
     config.run.dry_run = args.dry_run
     config.run.startup_hold_ticks = args.startup_hold_ticks
 

@@ -11,48 +11,35 @@ boundary (set_destination / run_step / done).
 from __future__ import annotations
 
 import math
-import os
 import pathlib
 import sys
-import tempfile
-from collections import deque
+from collections import OrderedDict
 from typing import Any
 
 import numpy as np
 
-from research.harness.model_backends import (
-    BackendUnavailable,
-    PlanBackend,
-    make_backend,
-)
+from research.harness.autovla_inference import AutoVlaInference, validate_trajectory
+from research.harness.autovla_sensors import CameraHistory
+from research.harness.route_completion import route_goal_reached
+
 
 DEFAULT_REPO = pathlib.Path(__file__).resolve().parents[1] / "models" / "AutoVLA"
 DEFAULT_CHECKPOINT = DEFAULT_REPO / "checkpoints" / "AutoVLA-hf"
 CODEBOOK = DEFAULT_REPO / "codebook_cache" / "agent_vocab.pkl"
 
+# The released nuPlan feature builder selects CAM_L1/CAM_R1 (side views),
+# not CAM_L0/CAM_R0. See AutoVLAAgentFeatureBuilder.compute_features.
 CAMERA_SPECS = (
     ("front_camera", 2.2, 0.0, 0.0),
-    ("front_left_camera", 2.0, -0.9, -55.0),
-    ("front_right_camera", 2.0, 0.9, 55.0),
+    ("front_left_camera", 2.0, -0.9, -90.0),
+    ("front_right_camera", 2.0, 0.9, 90.0),
 )
 
 # model coordinate frame: x forward, y left. CARLA steer positive = right.
 MAX_STEER_RAD = 0.65
 WHEELBASE_M = 2.9
-# Replanning interval. 20 ticks (2 s at 10 Hz) is the historical default;
-# SCOUT_AUTOVLA_INFER_TICKS overrides it (e.g. 5 = replan at the 2 Hz frame rate).
-INFERENCE_INTERVAL_TICKS = int(os.environ.get("SCOUT_AUTOVLA_INFER_TICKS", "20"))
-# Driving-command wording. "legacy" sends forward/left/right; "navsim" sends the
-# NAVSIM training vocabulary (keep forward / turn left / turn right) that the
-# PDMS checkpoint was fine-tuned on.
-COMMAND_STYLE = os.environ.get("SCOUT_AUTOVLA_COMMANDS", "legacy")
-_NAVSIM_COMMANDS = {"forward": "keep forward", "left": "turn left", "right": "turn right"}
-# How far along the route the driving command looks for a turn (historical: 16 m).
-COMMAND_LOOKAHEAD_M = float(os.environ.get("SCOUT_AUTOVLA_CMD_LOOKAHEAD_M", "16"))
-# Pure-pursuit target time along the predicted path (historical: 1 s). The
-# model's turns sit 2-5 s into its plan, so a 1 s target barely steers.
-TRACK_LOOKAHEAD_S = float(os.environ.get("SCOUT_AUTOVLA_TRACK_LOOKAHEAD_S", "1.0"))
-CAPTURE_INTERVAL_TICKS = 5     # 2 Hz frame sampling
+INFERENCE_INTERVAL_SECONDS = 0.5
+CAPTURE_INTERVAL_SECONDS = 0.5
 TARGET_SPEED_MPS = 5.5
 
 
@@ -64,42 +51,88 @@ class AutoVlaAdapter:
         client: Any,
         repo_path: pathlib.Path | None = None,
         checkpoint_dir: pathlib.Path | None = None,
-        device: str = "cuda",
+        device: str | None = None,
         target_speed_mps: float = TARGET_SPEED_MPS,
-        backend: PlanBackend | None = None,
+        decoding_mode: str = "adaptive",
     ) -> None:
         self._world = world
         self._ego = ego_vehicle
+        self._configure_vehicle_geometry()
         self._client = client
-        self._device = device
         self._target_speed = target_speed_mps  # upper speed limit, never a forced cruise speed
         self._fixed_delta_seconds = float(world.get_settings().fixed_delta_seconds or 0.1)
-        # Serving stack: in-process torch (historical) or a remote HTTP server.
-        # The adapter is identical either way; only plan() differs.
-        if backend is None:
-            backend = make_backend(
-                "torch",
-                repo_path=repo_path,
-                checkpoint_dir=checkpoint_dir,
-                device=device,
-            )
-        self._backend = backend
+        repo = pathlib.Path(repo_path) if repo_path else DEFAULT_REPO
+        if str(repo) not in sys.path:
+            sys.path.insert(0, str(repo))
+        import torch  # noqa: E402
+        from models.autovla import AutoVLA  # noqa: E402
 
-        self._frame_dir = pathlib.Path(tempfile.mkdtemp(prefix="autovla-frames-"))
+        self._torch = torch
+        if device is None:
+            if torch.cuda.is_available():
+                index = max(range(torch.cuda.device_count()), key=lambda i: torch.cuda.mem_get_info(i)[0])
+                device = f"cuda:{index}"
+            else:
+                device = "cpu"
+        self._device = device
+        config = {
+            "model": {
+                "use_cot": True,
+                "pretrained_model_path": str(checkpoint_dir or DEFAULT_CHECKPOINT),
+                "train_vision_backbone": False,
+                "train_lm_backbone": True,
+                "codebook_cache_path": str(repo / "codebook_cache" / "agent_vocab.pkl"),
+                "trajectory": {"num_poses": 10, "interval_length": 0.5, "time_horizon": 5.0},
+                "tokens": {"action_start_id": 151665, "ignore_index": -100, "assistant_id": [151644, 77091]},
+                "video": {"min_pixels": 109760, "max_pixels": 109760},
+            },
+            "inference": {"sample": {"max_length": 2048, "temperature": 0.01, "top_k": 0, "top_p": 1.0}},
+        }
+        self._model = AutoVLA(config, inference=True, device=device)
+        self._model.eval()
+
+        self._predictor = AutoVlaInference(self._model, decoding_mode=decoding_mode)
+        self._capture_stride = max(1, round(CAPTURE_INTERVAL_SECONDS / self._fixed_delta_seconds))
+        if abs(self._capture_stride * self._fixed_delta_seconds - CAPTURE_INTERVAL_SECONDS) > 1e-9:
+            raise ValueError("AutoVLA timestep must divide its 0.5-second camera interval")
+        self._inference_interval_ticks = self._capture_stride
+        self._history = CameraHistory([name for name, *_ in CAMERA_SPECS], self._capture_stride)
+        self._state_history: OrderedDict[int, dict[str, Any]] = OrderedDict()
         self._cameras: dict[str, Any] = {}
-        self._frames: dict[str, deque[str]] = {name: deque(maxlen=4) for name, *_ in CAMERA_SPECS}
         self._tick = 0
         self._last_poses: Any = None
         self._trajectory_origin: tuple[float, float, float] | None = None
         self._last_inference_tick = -10_000
+        self._last_attempt_tick = -10_000
+        self._last_inference_frame = -1
+        self._trajectory_timestamp: float | None = None
+        self._inference_count = 0
+        self._goal_location: Any = None
         self._route: list[Any] = []
+        self._route_options: list[Any] = []
         self._route_index = 0
         self._last_speed = 0.0
+        self._speed_error_integral = 0.0
         self._last_command = "forward"
         self.last_step_info: dict[str, Any] = {}
         self._setup_cameras()
 
     # ------------------------------------------------------------------ sensors
+    def _configure_vehicle_geometry(self) -> None:
+        physics = self._ego.get_physics_control()
+        wheels = physics.wheels
+        if len(wheels) != 4:
+            raise ValueError("AutoVLA trajectory tracking requires a four-wheel vehicle")
+        self._max_steer_rad = math.radians(max(wheel.max_steer_angle for wheel in wheels[:2]))
+        # CARLA reports wheel positions in world-space centimetres, so axle
+        # separation must be rotation invariant, rather than an x difference.
+        front = np.mean([[wheel.position.x, wheel.position.y] for wheel in wheels[:2]], axis=0)
+        rear = np.mean([[wheel.position.x, wheel.position.y] for wheel in wheels[2:]], axis=0)
+        self._wheelbase_m = float(np.linalg.norm(front - rear) / 100.0)
+        if self._max_steer_rad <= 0 or self._wheelbase_m <= 0:
+            raise ValueError("Invalid vehicle steering geometry")
+        self._steering_curve = sorted((point.x, point.y) for point in physics.steering_curve)
+
     def _setup_cameras(self) -> None:
         import carla
 
@@ -119,13 +152,12 @@ class AutoVlaAdapter:
 
     def _make_callback(self, name: str):
         def _cb(image: Any) -> None:
-            if image.frame % CAPTURE_INTERVAL_TICKS != 0:
+            if image.frame % self._capture_stride:
                 return
-            cam_dir = self._frame_dir / name
-            cam_dir.mkdir(parents=True, exist_ok=True)
-            path = cam_dir / f"{image.frame:08d}.png"
-            image.save_to_disk(str(path))
-            self._frames[name].append(str(path))
+            from PIL import Image
+            pixels = np.frombuffer(image.raw_data, dtype=np.uint8).reshape(image.height, image.width, 4)
+            rgb = Image.fromarray(pixels[:, :, 2::-1].copy())
+            self._history.add(name, image.frame, rgb)
         return _cb
 
     # ------------------------------------------------------------------ routing
@@ -139,9 +171,11 @@ class AutoVlaAdapter:
             planner.setup()
         except Exception:
             pass
+        self._goal_location = goal_location
         start = self._ego.get_location()
         trace = planner.trace_route(start, goal_location)
         self._route = [wp for wp, _ in trace]
+        self._route_options = [option for _, option in trace]
         self._route_index = 0
 
     def _advance_route(self) -> None:
@@ -160,21 +194,40 @@ class AutoVlaAdapter:
 
     def _driving_command(self) -> str:
         if not self._route:
-            return "forward"
+            return "keep forward"
         self._advance_route()
-        idx = min(self._route_index + max(1, round(COMMAND_LOOKAHEAD_M / 2.0)), len(self._route) - 1)  # 2 m spacing
+        # Preserve the planner's actual junction command. Inferring a turn
+        # from a short local bearing confused lane drift with route intent
+        # and announced real turns too late.
+        velocity = self._ego.get_velocity()
+        preview_distance = max(16.0, math.hypot(velocity.x, velocity.y) * 4.0)
+        distance = 0.0
+        for index in range(self._route_index, len(self._route)):
+            if index > self._route_index:
+                distance += self._route[index].transform.location.distance(self._route[index - 1].transform.location)
+            if distance > preview_distance:
+                break
+            if index < len(self._route_options):
+                name = self._route_options[index].name
+                if name in {"LEFT", "CHANGELANELEFT"}:
+                    return "turn left"
+                if name in {"RIGHT", "CHANGELANERIGHT"}:
+                    return "turn right"
+        if self._route_options:
+            return "keep forward"
+        idx = min(self._route_index + 8, len(self._route) - 1)  # ~16 m ahead at 2 m spacing
         target = self._route[idx].transform.location
         ego_tf = self._ego.get_transform()
         yaw = math.radians(ego_tf.rotation.yaw)
         dx = target.x - ego_tf.location.x
         dy = target.y - ego_tf.location.y
-        # CARLA y is right; heading delta positive = target to the left
+        # CARLA y is right; a positive heading delta is a right turn.
         heading_delta = math.degrees(math.atan2(-(dx * math.sin(yaw) - dy * math.cos(yaw)), dx * math.cos(yaw) + dy * math.sin(yaw)))
         if heading_delta > 30:
-            return "right"
+            return "turn right"
         if heading_delta < -30:
-            return "left"
-        return "forward"
+            return "turn left"
+        return "keep forward"
 
     # ------------------------------------------------------------------ control
     def _control_from_poses(self, poses: Any) -> Any:
@@ -184,7 +237,10 @@ class AutoVlaAdapter:
         pts = poses.detach().float().cpu().numpy() if hasattr(poses, "detach") else _np.asarray(poses)
         if pts.ndim != 2 or pts.shape[0] == 0 or pts.shape[1] < 2 or not _np.isfinite(pts[:, :2]).all():
             return carla.VehicleControl(throttle=0.0, brake=0.3)
-        elapsed = max(0.0, (self._tick - self._last_inference_tick) * self._fixed_delta_seconds)
+        if getattr(self, "_trajectory_timestamp", None) is not None:
+            elapsed = max(0.0, self._world.get_snapshot().timestamp.elapsed_seconds - self._trajectory_timestamp)
+        else:
+            elapsed = max(0.0, (self._tick - self._last_inference_tick) * self._fixed_delta_seconds)
         horizon = len(pts) * 0.5
         if elapsed >= horizon or self._trajectory_origin is None:
             return carla.VehicleControl(throttle=0.0, brake=0.5)
@@ -192,8 +248,13 @@ class AutoVlaAdapter:
         # Advance in time and transform the target through that original frame.
         times = _np.arange(len(pts) + 1) * 0.5
         xy = _np.vstack((_np.zeros((1, 2)), pts[:, :2]))
-        target_time = min(elapsed + TRACK_LOOKAHEAD_S, horizon)
-        target = _np.array([_np.interp(target_time, times, xy[:, i]) for i in (0, 1)])
+        # Speed planning uses two seconds to include the launch phase of tokenized plans.
+        # One-second previews repeatedly saw only the initial stop tokens at
+        # 2 Hz replanning, leaving a stationary car unable to start moving.
+        target_time = min(elapsed + 2.0, horizon)
+        # Track near-term lateral intent separately from launch/speed planning.
+        steering_time = min(elapsed + 1.0, horizon)
+        target = _np.array([_np.interp(steering_time, times, xy[:, i]) for i in (0, 1)])
         origin_x, origin_y, origin_yaw = self._trajectory_origin
         c, s = math.cos(origin_yaw), math.sin(origin_yaw)
         world_x = origin_x + target[0] * c + target[1] * s
@@ -203,128 +264,151 @@ class AutoVlaAdapter:
         dx, dy = world_x - current.location.x, world_y - current.location.y
         x = dx * math.cos(yaw) + dy * math.sin(yaw)
         y = dx * math.sin(yaw) - dy * math.cos(yaw)
+        if x < -0.5:
+            return carla.VehicleControl(throttle=0.0, brake=0.5)
         dist = math.hypot(x, y)
+        v = self._ego.get_velocity()
+        speed = math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)
         if dist < 0.5:
             steer = 0.0
         else:
             alpha = math.atan2(y, x)  # model frame: +y is left
-            delta = math.atan2(2.0 * WHEELBASE_M * math.sin(alpha), dist)
-            steer = max(-1.0, min(1.0, -delta / MAX_STEER_RAD))  # CARLA steer positive = right
-        v = self._ego.get_velocity()
-        speed = math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)
+            delta = math.atan2(2.0 * getattr(self, "_wheelbase_m", WHEELBASE_M) * math.sin(alpha), dist)
+            curve = getattr(self, "_steering_curve", [])
+            scale = float(np.interp(speed * 3.6, [point[0] for point in curve], [point[1] for point in curve])) if curve else 1.0
+            max_angle = getattr(self, "_max_steer_rad", MAX_STEER_RAD) * max(scale, 0.01)
+            steer = max(-1.0, min(1.0, -delta / max_angle))  # CARLA steer positive = right
         distances = _np.concatenate(([0.0], _np.cumsum(_np.linalg.norm(_np.diff(xy, axis=0), axis=1))))
-        # Look a fixed distance ahead along the predicted path. Sampling the
-        # displacement over the next second starts inside the near-zero segment
-        # of a from-rest prediction (the model predicts ~0.4 m in the first
-        # second and only then accelerates), which stalls a stationary ego: the
-        # old 1 s window gave target_speed < 0.1, the controller braked, the
-        # scenario never advanced and the model kept predicting a from-rest
-        # start. A 2 s lookahead with a 0.5 s finite difference gives a stable,
-        # positive target as soon as the predicted path moves.
-        look_time = min(elapsed + 2.0, horizon)
-        look_prev = max(0.0, look_time - 0.5)
-        planned_distance = float(
-            _np.interp(look_time, times, distances) - _np.interp(look_prev, times, distances)
-        )
-        target_speed = min(self._target_speed, planned_distance / max(look_time - look_prev, 1e-3))
+        planned_distance = _np.interp(target_time, times, distances) - _np.interp(elapsed, times, distances)
+        target_speed = min(self._target_speed, float(planned_distance / (target_time - elapsed)))
+        curvature = abs(2.0 * y / max(dist * dist, 0.25))
+        if curvature > 1e-6:
+            target_speed = min(target_speed, math.sqrt(2.0 / curvature))
         if target_speed < 0.1:
+            self._speed_error_integral = 0.0
             return carla.VehicleControl(throttle=0.0, steer=steer, brake=max(0.3, min(1.0, speed * 0.25)))
         err = target_speed - speed
-        # Feed-forward keeps a from-rest ego accelerating; the P term tracks the
-        # predicted speed. P-only (0.12*err) never overcame rolling resistance,
-        # leaving the ego parked with the wheels commanded but not turning.
-        feedforward = 0.1 * target_speed
-        throttle = max(0.0, min(0.85, feedforward + 0.15 * err))
+        self._speed_error_integral = max(0.0, min(2.0,
+            getattr(self, "_speed_error_integral", 0.0) + err * self._fixed_delta_seconds))
+        throttle = max(0.0, min(0.8, 0.35 * err + 0.12 * self._speed_error_integral))
         brake = max(0.0, min(0.6, 0.25 * (-err))) if err < -0.5 else 0.0
         if brake > 0:
             throttle = 0.0
+            self._speed_error_integral = 0.0
         return carla.VehicleControl(throttle=throttle, steer=steer, brake=brake)
 
     # ------------------------------------------------------------------ harness API
     def run_step(self) -> Any:
         self._tick += 1
         carla = __import__("carla")
+        snapshot = self._world.get_snapshot()
+        transform = self._ego.get_transform()
+        velocity = self._ego.get_velocity()
+        acceleration = self._ego.get_acceleration()
+        self._state_history[snapshot.frame] = {
+            "timestamp": float(snapshot.timestamp.elapsed_seconds),
+            "velocity": [velocity.x, velocity.y],
+            "acceleration": [acceleration.x, acceleration.y],
+            "origin": (transform.location.x, transform.location.y, math.radians(transform.rotation.yaw)),
+        }
+        while len(self._state_history) > 64:
+            self._state_history.popitem(last=False)
         if self._route:
             self._advance_route()
-        if self._tick - self._last_inference_tick >= INFERENCE_INTERVAL_TICKS:
-            if all(len(self._frames[name]) >= 4 for name, *_ in CAMERA_SPECS):
-                v = self._ego.get_velocity()
-                speed = math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)
-                acceleration = self._ego.get_acceleration()
-                self._last_speed = speed
-                command = self._driving_command()
-                features = {
-                    "images": {
-                        "front_camera": list(self._frames["front_camera"]),
-                        "front_left_camera": list(self._frames["front_left_camera"]),
-                        "front_right_camera": list(self._frames["front_right_camera"]),
-                    },
-                    "vehicle_velocity": [v.x, v.y],
-                    "vehicle_acceleration": [acceleration.x, acceleration.y],
-                    "driving_command": _NAVSIM_COMMANDS[command] if COMMAND_STYLE == "navsim" else command,
-                    "dataset_name": "nuscenes",
-                    "sensor_data_path": None,
+        history = self._history.snapshot(snapshot.frame)
+        if history is None:
+            self.last_step_info = {"mode": "sensor-wait", "sensor_ready": False}
+            return carla.VehicleControl(throttle=0.0, brake=0.5)
+        images, frame_ids = history
+        state = self._state_history.get(frame_ids[-1])
+        if state is None:
+            self.last_step_info = {"mode": "sensor-wait", "sensor_ready": False}
+            return carla.VehicleControl(throttle=0.0, brake=0.5)
+        if (self._tick - self._last_attempt_tick >= self._inference_interval_ticks
+                and frame_ids[-1] != self._last_inference_frame):
+            self._last_attempt_tick = self._tick
+            command = self._driving_command()
+            features = {
+                "images": images,
+                "vehicle_velocity": state["velocity"],
+                "vehicle_acceleration": state["acceleration"],
+                "driving_command": command,
+                "dataset_name": "nuscenes", "sensor_data_path": None,
+            }
+            try:
+                poses, cot = self._predictor.predict(features)
+                self._last_poses = validate_trajectory(poses)
+                self._trajectory_origin = state["origin"]
+                self._trajectory_timestamp = state["timestamp"]
+                self._last_inference_tick = self._tick
+                self._last_inference_frame = frame_ids[-1]
+                self._last_command = command
+                self._inference_count += 1
+                if self._inference_count == 1:
+                    print(f"[autovla] ready on {self._device}: "
+                          f"{self._predictor.last_metrics['inference_seconds']:.3f}s, "
+                          "10 action tokens, synchronized 2 Hz cameras", flush=True)
+                self.last_step_info = {
+                    "mode": "trajectory", "sensor_ready": True, "command": command,
+                    "camera_frame_ids": frame_ids, "inference_count": self._inference_count,
+                    "trajectory": self._last_poses.tolist(),
+                    **self._predictor.last_metrics,
                 }
-                try:
-                    import time as _time
-                    _t0 = _time.time()
-                    transform = self._ego.get_transform()
-                    poses, cot = self._backend.plan(features)
-                    if not getattr(self, "_logged_first", False):
-                        print(f"[autovla] first inference ok ({self._backend.name}): {_time.time()-_t0:.2f}s poses={None if poses is None else tuple(np.shape(poses))}", flush=True)
-                        self._logged_first = True
-                    self._last_poses = poses
-                    self._trajectory_origin = (transform.location.x, transform.location.y, math.radians(transform.rotation.yaw))
-                    self._last_inference_tick = self._tick
-                    self._last_command = command
-                    self.last_step_info = {"command": command, "cot": str(cot)[:200]}
-                    try:
-                        # Decoded plan (model frame: x forward, y left) for offline diagnosis.
-                        pts = poses.detach().float().cpu().numpy() if hasattr(poses, "detach") else np.asarray(poses)
-                        self.last_step_info["poses_xy"] = [[round(float(a), 2), round(float(b), 2)] for a, b in pts[:, :2]]
-                    except Exception:
-                        pass
-                except Exception as exc:
-                    import traceback as _tb
-                    if not getattr(self, "_logged_error", False):
-                        print(f"[autovla] inference error: {exc!r}", flush=True)
-                        _tb.print_exc()
-                        self._logged_error = True
-                    self.last_step_info = {"error": repr(exc)[:300]}
-                    return carla.VehicleControl(throttle=0.0, brake=0.5)
-        if not getattr(self, "_logged_frames", False) and self._tick > 25:
-            print("[autovla] frames:", {k: len(v) for k, v in self._frames.items()}, flush=True)
-            self._logged_frames = True
+            except Exception as exc:
+                self._last_poses = None
+                self._trajectory_origin = None
+                self._trajectory_timestamp = None
+                self.last_step_info = {"mode": "inference-error", "error": repr(exc)[:300]}
+                self._speed_error_integral = 0.0
+                return carla.VehicleControl(throttle=0.0, brake=0.5)
         if self._last_poses is not None:
             return self._control_from_poses(self._last_poses)
-        return carla.VehicleControl(throttle=0.0, brake=0.3)
+        return carla.VehicleControl(throttle=0.0, brake=0.5)
+
+    def get_debug_state(self) -> dict[str, Any]:
+        info = dict(self.last_step_info)
+        if self._route:
+            self._advance_route()
+            location = self._ego.get_location()
+            index = self._route_index
+            start = self._route[index].transform.location
+            error = float(location.distance(start))
+            for segment in range(max(0, index - 2), min(len(self._route) - 1, index + 3)):
+                a, b = [self._route[i].transform.location for i in (segment, segment + 1)]
+                dx, dy = b.x - a.x, b.y - a.y
+                length_sq = dx * dx + dy * dy
+                projection = max(0.0, min(1.0, ((location.x - a.x) * dx + (location.y - a.y) * dy) / length_sq)) if length_sq else 0.0
+                error = min(error, math.hypot(location.x - a.x - projection * dx, location.y - a.y - projection * dy))
+            heading = self._route[index].transform.rotation.yaw
+            info["route_progress"] = {
+                "next_waypoint_index": index,
+                "remaining_waypoints": len(self._route) - index,
+                "distance_to_next_waypoint_m": float(location.distance(start)),
+                "cross_track_error_m": error,
+                "heading_error_deg": (self._ego.get_transform().rotation.yaw - heading + 180) % 360 - 180,
+            }
+        return info
+
+    def get_route_preview(self) -> list[dict[str, Any]]:
+        return self.get_route_waypoints()[:12]
+
+    def get_route_waypoints(self) -> list[dict[str, Any]]:
+        return [{"index": index, "location": {"x": wp.transform.location.x,
+                 "y": wp.transform.location.y, "z": wp.transform.location.z}}
+                for index, wp in enumerate(self._route)]
 
     # ------------------------------------------------------- instrumentation hooks
     @property
-    def backend_name(self) -> str:
-        return self._backend.name
-
-    @property
     def torch_model(self):
-        return self._backend.torch_model
+        return self._model.vlm
 
     def inspect_loaded_model(self, max_modules: int = 24) -> dict:
-        if not getattr(self._backend, "supports_activation_hooks", False):
-            return {
-                "agent_name": "autovla",
-                "status": "unsupported-backend",
-                "torch_model_available": False,
-                "backend": self._backend.name,
-                "notes": "Remote serving backend exposes no in-process torch model; "
-                "activation-based coverage (KMNC/LSA) is unavailable.",
-            }
         model = self.torch_model
         leaves = [(n, m) for n, m in model.named_modules() if n and len(list(m.children())) == 0]
         return {
             "agent_name": "autovla",
             "status": "ok",
             "torch_model_available": True,
-            "backend": self._backend.name,
             "candidate_layers": [{"name": n, "module_type": type(m).__name__} for n, m in leaves[:max_modules]],
         }
 
@@ -339,11 +423,6 @@ class AutoVlaAdapter:
         return f"model.language_model.layers.{idx}", lm.layers[-1]
 
     def register_activation_hook(self, callback, layer_name: str | None = None) -> dict:
-        if not getattr(self._backend, "supports_activation_hooks", False):
-            raise BackendUnavailable(
-                "activation hooks require the in-process 'torch' backend "
-                f"(current backend: '{self._backend.name}')."
-            )
         name, module = self._resolve_target_module(layer_name)
         handle = module.register_forward_hook(callback)
         if not hasattr(self, "_hook_handles"):
@@ -361,9 +440,12 @@ class AutoVlaAdapter:
         self._hook_handles = []
 
     def done(self) -> bool:
-        return False
+        self._advance_route()
+        return route_goal_reached(self._ego, self._goal_location,
+                                  [wp.transform.location for wp in self._route], self._route_index)
 
     def destroy(self) -> None:
+        self.clear_activation_hooks()
         for cam in self._cameras.values():
             try:
                 cam.stop()
@@ -371,7 +453,5 @@ class AutoVlaAdapter:
             except Exception:
                 pass
         self._cameras.clear()
-        try:
-            self._backend.close()
-        except Exception:
-            pass
+        self._history.clear()
+        self._state_history.clear()

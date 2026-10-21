@@ -69,6 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--goal-spawn-index", type=int, default=None)
     parser.add_argument("--scenario-description", default=None)
     parser.add_argument("--runs", type=int, default=5)
+    parser.add_argument("--reuse-server", action="store_true", help="Reuse the existing server; reload the world before each run.")
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--carla-root", type=Path, required=True)
     parser.add_argument("--port", type=int, default=2400)
     parser.add_argument("--output-dir", type=Path, default=Path("research/logs/diagnostics"))
@@ -111,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--label", default="restart-sessions")
     parser.add_argument("--resolution-x", type=int, default=800)
     parser.add_argument("--resolution-y", type=int, default=600)
-    parser.add_argument("--quality-level", default=os.environ.get("SCOUT_CARLA_QUALITY", "Epic"))
+    parser.add_argument("--quality-level", default="Low")
     parser.add_argument("--boot-timeout-seconds", type=float, default=60.0)
     return parser
 
@@ -168,7 +170,6 @@ def launch_carla(carla_root: Path, port: int, resolution_x: int, resolution_y: i
         f"-carla-rpc-port={port}",
         f"-quality-level={quality_level}",
         "-RenderOffScreen",
-        "-opengl",
         "-nosound",
     ]
     graphics_adapter = os.environ.get("MRES_CARLA_GRAPHICS_ADAPTER")
@@ -269,8 +270,8 @@ def main() -> None:
 
     run_summaries: list[dict[str, object]] = []
     for run_index in range(args.runs):
-        current_port = args.port + run_index
-        carla_process = launch_carla(args.carla_root, current_port, args.resolution_x, args.resolution_y, args.quality_level)
+        current_port = args.port if args.reuse_server else args.port + run_index
+        carla_process = None if args.reuse_server else launch_carla(args.carla_root, current_port, args.resolution_x, args.resolution_y, args.quality_level)
         try:
             wait_for_carla("127.0.0.1", current_port, args.boot_timeout_seconds)
 
@@ -279,6 +280,8 @@ def main() -> None:
             config = AppConfig()
             config.harness.host = "127.0.0.1"
             config.harness.port = current_port
+            config.harness.reload_world = args.reuse_server
+            config.harness.seed = args.seed
             config.harness.timeout_seconds = max(float(args.boot_timeout_seconds), config.harness.timeout_seconds)
             config.harness.output_dir = args.run_output_dir
             config.agent.kind = args.agent_kind
@@ -451,8 +454,9 @@ def main() -> None:
                     }
                 )
         finally:
-            stop_carla(carla_process)
-            time.sleep(5.0)
+            if carla_process is not None:
+                stop_carla(carla_process)
+                time.sleep(5.0)
 
     summary = {
         "scenario_id": base_scenario.scenario_id,
@@ -467,7 +471,8 @@ def main() -> None:
         "runs": args.runs,
         "host": "127.0.0.1",
         "port": args.port,
-        "port_strategy": "increment-per-run",
+        "port_strategy": "reuse-fixed-port" if args.reuse_server else "increment-per-run",
+        "seed": args.seed,
         "agent_kind": args.agent_kind,
         "agent_module": args.agent_module,
         "label": args.label,

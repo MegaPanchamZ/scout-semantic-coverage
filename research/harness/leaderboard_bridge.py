@@ -6,6 +6,8 @@ import math
 import os
 from pathlib import Path
 import sys
+from threading import Condition
+import time
 from typing import Any
 
 import numpy as np
@@ -88,11 +90,32 @@ def ensure_local_carla_agents_on_path() -> None:
 
 
 class LeaderboardSensorSuite:
-    def __init__(self, world: Any, ego_vehicle: Any) -> None:
+    def __init__(self, world: Any, ego_vehicle: Any, *, native_leaderboard_defaults: bool = False) -> None:
+        self.native_leaderboard_defaults = native_leaderboard_defaults
         self.world = world
         self.ego_vehicle = ego_vehicle
         self.sensor_actors: list[Any] = []
         self.latest_data: dict[str, tuple[float, Any]] = {}
+        self.latest_frames: dict[str, int] = {}
+        self._data_condition = Condition()
+
+    def _store_data(self, sensor_id: str, timestamp: float, frame: int, data: Any) -> None:
+        with self._data_condition:
+            self.latest_data[sensor_id] = (float(timestamp), data)
+            self.latest_frames[sensor_id] = int(frame)
+            self._data_condition.notify_all()
+
+    def wait_for_frame(self, sensor_ids: list[str], frame: int, timeout: float = 10.0) -> None:
+        deadline = time.monotonic() + timeout
+        with self._data_condition:
+            while True:
+                missing = [key for key in sensor_ids if self.latest_frames.get(key) != frame]
+                if not missing:
+                    return
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(f"Sensors missing CARLA frame {frame}: {missing}")
+                self._data_condition.wait(remaining)
 
     def setup(self, sensor_specs: list[dict[str, Any]]) -> None:
         for spec in sensor_specs:
@@ -110,11 +133,14 @@ class LeaderboardSensorSuite:
             else:
                 raise NotImplementedError(f"Unsupported leaderboard sensor type '{sensor_type}'")
 
-    def read_input_data(self, timestamp: float) -> dict[str, tuple[float, Any]]:
-        input_data = dict(self.latest_data)
+    def read_input_data(self, timestamp: float, frame: int | None = None) -> dict[str, tuple[float, Any]]:
+        with self._data_condition:
+            input_data = dict(self.latest_data) if frame is None else {
+                key: (self.latest_frames[key], value[1]) for key, value in self.latest_data.items()
+            }
         input_data.update(
             {
-                spec_id: (timestamp, self._read_pseudosensor(spec_id, sensor_type))
+                spec_id: (timestamp if frame is None else frame, self._read_pseudosensor(spec_id, sensor_type))
                 for spec_id, sensor_type in self._iter_pseudosensors()
             }
         )
@@ -149,6 +175,11 @@ class LeaderboardSensorSuite:
         blueprint.set_attribute("image_size_x", str(spec.get("width", 800)))
         blueprint.set_attribute("image_size_y", str(spec.get("height", 600)))
         blueprint.set_attribute("fov", str(spec.get("fov", 90)))
+        if self.native_leaderboard_defaults:
+            for key, value in {"lens_circle_multiplier": 3.0, "lens_circle_falloff": 3.0,
+                               "chromatic_aberration_intensity": 0.5,
+                               "chromatic_aberration_offset": 0}.items():
+                blueprint.set_attribute(key, str(value))
         transform = carla.Transform(
             carla.Location(x=spec.get("x", 0.0), y=spec.get("y", 0.0), z=spec.get("z", 0.0)),
             carla.Rotation(
@@ -163,7 +194,7 @@ class LeaderboardSensorSuite:
         def _on_image(image: Any) -> None:
             array = np.frombuffer(image.raw_data, dtype=np.uint8)
             array = array.reshape((image.height, image.width, 4))[:, :, :3]
-            self.latest_data[sensor_id] = (float(image.timestamp), array)
+            self._store_data(sensor_id, image.timestamp, image.frame, array)
 
         sensor.listen(_on_image)
         self.sensor_actors.append(sensor)
@@ -171,15 +202,18 @@ class LeaderboardSensorSuite:
     def _spawn_gnss(self, spec: dict[str, Any]) -> None:
         carla = importlib.import_module("carla")
         blueprint = self.world.get_blueprint_library().find("sensor.other.gnss")
-        if "sensor_tick" in spec:
+        if self.native_leaderboard_defaults:
+            blueprint.set_attribute("sensor_tick", "0")
+            for axis in ("alt", "lat", "lon"):
+                blueprint.set_attribute(f"noise_{axis}_bias", "0")
+        elif "sensor_tick" in spec:
             blueprint.set_attribute("sensor_tick", str(spec["sensor_tick"]))
         transform = carla.Transform(carla.Location(x=spec.get("x", 0.0), y=spec.get("y", 0.0), z=spec.get("z", 0.0)))
         sensor = self.world.spawn_actor(blueprint, transform, attach_to=self.ego_vehicle)
         sensor_id = spec["id"]
 
         def _on_gnss(event: Any) -> None:
-            self.latest_data[sensor_id] = (
-                float(event.timestamp),
+            self._store_data(sensor_id, event.timestamp, event.frame,
                 np.array([event.latitude, event.longitude, event.altitude], dtype=np.float32),
             )
 
@@ -189,7 +223,14 @@ class LeaderboardSensorSuite:
     def _spawn_imu(self, spec: dict[str, Any]) -> None:
         carla = importlib.import_module("carla")
         blueprint = self.world.get_blueprint_library().find("sensor.other.imu")
-        if "sensor_tick" in spec:
+        if self.native_leaderboard_defaults:
+            # The official CVPR 2021 wrapper samples every physics frame;
+            # applying the agent's declared 0.05 tick can skip frames in CARLA.
+            blueprint.set_attribute("sensor_tick", "0")
+            for axis, stddev in {"x": 0.001, "y": 0.001, "z": 0.015}.items():
+                blueprint.set_attribute(f"noise_accel_stddev_{axis}", str(stddev))
+                blueprint.set_attribute(f"noise_gyro_stddev_{axis}", "0.001")
+        elif "sensor_tick" in spec:
             blueprint.set_attribute("sensor_tick", str(spec["sensor_tick"]))
         transform = carla.Transform(
             carla.Location(x=spec.get("x", 0.0), y=spec.get("y", 0.0), z=spec.get("z", 0.0)),
@@ -211,8 +252,7 @@ class LeaderboardSensorSuite:
                 ],
                 dtype=np.float32,
             )
-            self.latest_data[sensor_id] = (
-                float(event.timestamp),
+            self._store_data(sensor_id, event.timestamp, event.frame,
                 np.array(
                     [
                         event.accelerometer.x,
@@ -257,7 +297,7 @@ class LeaderboardSensorSuite:
         def _on_lidar(point_cloud: Any) -> None:
             array = np.frombuffer(point_cloud.raw_data, dtype=np.float32)
             array = array.reshape((-1, 4))
-            self.latest_data[sensor_id] = (float(point_cloud.timestamp), array)
+            self._store_data(sensor_id, point_cloud.timestamp, point_cloud.frame, array)
 
         sensor.listen(_on_lidar)
         self.sensor_actors.append(sensor)
@@ -291,10 +331,15 @@ class LeaderboardModuleAdapter:
         else:
             self._agent = agent_class(config_path)
             should_call_setup = False
-        self._sensor_suite = LeaderboardSensorSuite(world, ego_vehicle)
+        self._sensor_suite = LeaderboardSensorSuite(
+            world, ego_vehicle, native_leaderboard_defaults=agent_class_name == "TransFuserAgent"
+        )
 
         if should_call_setup:
             self._agent.setup(config_path)
+        self.torch_model = getattr(self._agent, "net", None)
+        if self.torch_model is None:
+            self.torch_model = getattr(self._agent, "model", None)
         if hasattr(self._agent, "bind_harness"):
             self._agent.bind_harness(world=world, ego_vehicle=ego_vehicle)
 
@@ -340,10 +385,19 @@ class LeaderboardModuleAdapter:
                 "timestamp": timestamp,
             }
             return control
-        input_data = self._sensor_suite.read_input_data(timestamp)
+        native_frame = None
+        if type(self._agent).__name__ == "TransFuserAgent":
+            self._sensor_suite.wait_for_frame(self._required_sensor_ids, snapshot.frame)
+            native_frame = snapshot.frame
+        input_data = self._sensor_suite.read_input_data(timestamp, frame=native_frame)
+        if getattr(self, "_gnss_normalizer", None) is not None and "gps" in input_data:
+            frame, sample = input_data["gps"]
+            input_data["gps"] = (frame, self._gnss_normalizer.normalize(sample))
         self.last_step_info = {
             "sensor_ready": True,
             "mode": "agent-run-step",
+            "snapshot_frame": snapshot.frame,
+            "sensor_frame_lag": {key: snapshot.frame - frame for key, frame in self._sensor_suite.latest_frames.items()},
             "required_sensor_ids": list(self._required_sensor_ids),
             "available_sensor_ids": sorted(input_data.keys()),
             "timestamp": timestamp,
@@ -358,7 +412,23 @@ class LeaderboardModuleAdapter:
     def get_debug_state(self) -> dict[str, Any]:
         debug_state = dict(self.last_step_info)
         debug_state["route_progress"] = self._route_debug_snapshot()
+        if type(self._agent).__name__ == "TransFuserAgent":
+            debug_state["native_pid"] = dict(getattr(self._agent, "pid_metadata", {}))
         return debug_state
+
+    def register_activation_hook(self, callback: Any, layer_name: str | None = None) -> dict[str, Any]:
+        if self.torch_model is None:
+            raise RuntimeError("Agent does not expose a PyTorch model")
+        modules = dict(self.torch_model.named_modules())
+        if layer_name is None and type(self._agent).__name__ == "TransFuserAgent":
+            layer_name = "encoder"
+        if layer_name is None or layer_name not in modules:
+            raise RuntimeError("Specify a valid model layer for this agent")
+        module = modules[layer_name]
+        return {"handle": module.register_forward_hook(callback), "layer_name": layer_name,
+                "module_type": type(module).__name__,
+                "model_summary": {"model_type": type(self.torch_model).__name__,
+                                  "named_module_count": len(modules), "preferred_hook_layer": layer_name}}
 
     def get_route_preview(self) -> list[dict[str, Any]]:
         preview = []
@@ -376,7 +446,9 @@ class LeaderboardModuleAdapter:
             return bool(self._agent.done())
         if self._goal_location is None:
             return False
-        return self._ego_vehicle.get_location().distance(self._goal_location) < 5.0
+        from research.harness.route_completion import route_goal_reached
+        self._route_debug_snapshot()
+        return route_goal_reached(self._ego_vehicle, self._goal_location, self._route_locations, self._route_progress_index)
 
     def destroy(self) -> None:
         self._sensor_suite.destroy()
@@ -402,6 +474,12 @@ class LeaderboardModuleAdapter:
         route_mod = importlib.import_module("leaderboard.utils.route_manipulation")
         lat_ref, lon_ref = route_mod._get_latlon_ref(self._world)
         gps_plan = route_mod.location_route_to_gps(world_plan, lat_ref, lon_ref)
+        if type(self._agent).__name__ == "TransFuserAgent":
+            from research.harness.gnss_coordinates import GnssRouteNormalizer
+            self._gnss_normalizer = GnssRouteNormalizer(
+                self._world.get_map(), self._ego_vehicle.get_location(),
+                lambda location: route_mod._location_to_gps(lat_ref, lon_ref, location),
+            )
         return gps_plan, world_plan
 
     def _route_debug_snapshot(self) -> dict[str, Any]:

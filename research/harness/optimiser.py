@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +16,6 @@ if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
 
 from research.harness.models import ScenarioSpec  # noqa: E402
-from research.harness.safety_outcomes import classify_run  # noqa: E402
 from research.harness.scenarios import load_scenario_spec  # noqa: E402
 from research.harness.dota_to_scenario import DEFAULT_METADATA_PATH, build_dota_seeded_scenario  # noqa: E402
 from research.harness.search_space import (  # noqa: E402
@@ -158,7 +156,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--startup-hold-ticks", type=int, default=0)
     parser.add_argument("--resolution-x", type=int, default=800)
     parser.add_argument("--resolution-y", type=int, default=600)
-    parser.add_argument("--quality-level", default=os.environ.get("SCOUT_CARLA_QUALITY", "Epic"))
+    parser.add_argument("--quality-level", default="Low")
+    parser.add_argument("--reuse-server", action="store_true", help="Reuse an existing CARLA server, resetting its world per candidate.")
     parser.add_argument("--boot-timeout-seconds", type=float, default=60.0)
     return parser
 
@@ -310,6 +309,9 @@ def _build_diagnostics_command(args: argparse.Namespace, scenario_spec_path: Pat
         "--boot-timeout-seconds",
         str(args.boot_timeout_seconds),
     ]
+    if getattr(args, "reuse_server", False):
+        command.append("--reuse-server")
+    command.extend(["--seed", str(args.seed)])
     if args.agent_repo_path is not None:
         command.extend(["--agent-repo-path", str(args.agent_repo_path)])
     if args.agent_module is not None:
@@ -417,10 +419,6 @@ def _evaluate_candidate(
                     semantic_next_test_requests = list(obligation_credit.get("next_test_requests", []) or [])
     semantic_colliding = "colliding" in semantic_covered_predicates
     critical_edge_case = collision_count > 0 or terminated_by_collision or semantic_colliding
-    # Broader safety-outcome classification for evaluation/reporting. It is
-    # recorded but does not change the optimiser score, so existing search
-    # behaviour and archived fitness values are preserved.
-    safety_outcome = classify_run(run_payload) if isinstance(run_payload, dict) else None
 
     metric_value = _extract_metric(result, args.fitness_metric)
     score = float("-inf") if metric_value is None else metric_value
@@ -447,8 +445,6 @@ def _evaluate_candidate(
         "fitness_value": metric_value,
         "score": score,
         "critical_edge_case": critical_edge_case,
-        "safety_unsafe": bool(safety_outcome and safety_outcome.get("unsafe")),
-        "safety_outcome": safety_outcome,
         "collision_count": collision_count,
         "terminated_by_collision": terminated_by_collision,
         "semantic_colliding": semantic_colliding,

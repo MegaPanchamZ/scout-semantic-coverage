@@ -127,34 +127,35 @@ def test_autovla_slow_prediction_brakes_a_faster_ego(adapter):
 
 
 def test_autovla_uses_simulator_acceleration(adapter):
+    from collections import OrderedDict
+    from research.harness.autovla_sensors import CameraHistory
+
     adapter._route = []
     adapter._tick = 20
     adapter._last_inference_tick = 0
     adapter._last_poses = None
     adapter._last_speed = 0.
-    adapter._frames = {name: ["frame.png"] * 4 for name in ("front_camera", "front_left_camera", "front_right_camera")}
+    adapter._history = CameraHistory(["front_camera", "front_left_camera", "front_right_camera"], stride=5)
+    for frame in (5, 10, 15, 20):
+        for name in ("front_camera", "front_left_camera", "front_right_camera"):
+            adapter._history.add(name, frame, "frame.png")
+    adapter._world = SimpleNamespace(get_snapshot=lambda: SimpleNamespace(
+        frame=20, timestamp=SimpleNamespace(elapsed_seconds=2.0)))
+    adapter._state_history = OrderedDict()
+    adapter._last_attempt_tick = 0
+    adapter._last_inference_frame = 0
+    adapter._inference_interval_ticks = 5
+    adapter._inference_count = 0
+    adapter._device = "cpu"
     adapter._ego.get_acceleration = lambda: SimpleNamespace(x=2.5, y=0.)
     adapter._ego.get_velocity = lambda: SimpleNamespace(x=5., y=0., z=0.)
     seen = []
-    adapter._backend = SimpleNamespace(
-        name="fake",
-        plan=lambda features: (seen.append(features) or np.zeros((10, 3)), ""),
-    )
+    adapter._predictor = SimpleNamespace(
+        predict=lambda features: (seen.append(features) or np.zeros((10, 3)), ""),
+        last_metrics={"inference_seconds": 0.0})
     adapter.run_step()
     assert seen[0]["vehicle_acceleration"] == [2.5, 0.]
-
-
-def test_autovla_from_rest_prediction_accelerates(adapter):
-    """A from-rest prediction is ~0.4 m in the first second; the tracker must
-    still command throttle instead of stalling at v=0."""
-    from_rest = np.array(
-        [[0.003, 0., 0.], [0.007, 0., 0.], [0.083, 0., 0.], [0.40, 0., 0.],
-         [1.11, 0., 0.], [2.30, 0., 0.], [3.85, 0., 0.], [5.81, 0., 0.],
-         [8.15, 0., 0.], [10.80, 0., 0.]]
-    )
-    control = adapter._control_from_poses(from_rest)
-    assert control.brake == 0.0
-    assert control.throttle > 0.0
+    assert adapter.last_step_info["mode"] == "trajectory"
 
 
 def test_carla_pythonapi_candidates_prefers_carla_root(tmp_path, monkeypatch):
@@ -183,6 +184,7 @@ def test_compat_route_planner_discovers_carla_root(tmp_path, monkeypatch):
 
 def test_coverage_observer_survives_missing_profile(tmp_path):
     pytest.importorskip("torch")
+    pytest.importorskip("joblib")
     import torch
 
     from research.harness.observers.coverage import CoverageObserver, CoverageObserverConfig

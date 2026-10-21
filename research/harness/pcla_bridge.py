@@ -8,6 +8,9 @@ import typing
 from typing import Any
 from xml.dom import minidom
 
+from research.harness.gnss_coordinates import GnssRouteNormalizer
+from research.harness.route_completion import route_goal_reached
+
 
 def _apply_pcla_import_aliases() -> None:
     """Work around vendored PCLA agent code that is not importable as-is.
@@ -88,7 +91,28 @@ class PclaAdapter:
         if not self._route_xml_path.exists():
             self._write_route_xml(self._route_waypoints, self._route_xml_path)
         self._pcla = pcla_mod.PCLA(self._agent_name, self._ego_vehicle, str(self._route_xml_path), self._client)
+        if self._agent_name in {"if_if", "lav_lav", "lav_fast", "simlingo_simlingo"}:
+            self._normalize_interfuser_gnss()
         self._refresh_instrumentation_targets()
+
+    def _normalize_interfuser_gnss(self) -> None:
+        route_module = importlib.import_module("leaderboard_codes.route_manipulation")
+        lat_ref, lon_ref = route_module._get_latlon_ref(self._world)
+        normalizer = GnssRouteNormalizer(
+            self._world.get_map(), self._ego_vehicle.get_location(),
+            lambda location: route_module._location_to_gps(lat_ref, lon_ref, location),
+        )
+        gps_id = "GPS" if getattr(self, "_agent_name", "if_if").startswith("lav_") else "gps"
+        sensor_interface = self._pcla.agent_instance.sensor_interface
+        get_data = sensor_interface.get_data
+
+        def get_normalized_data(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            data = dict(get_data(*args, **kwargs))
+            frame, sample = data[gps_id]
+            data[gps_id] = (frame, normalizer.normalize(sample))
+            return data
+
+        sensor_interface.get_data = get_normalized_data
 
     def run_step(self) -> Any:
         if self._pcla is None:
@@ -106,7 +130,9 @@ class PclaAdapter:
     def done(self) -> bool:
         if self._goal_location is None:
             return False
-        return self._ego_vehicle.get_location().distance(self._goal_location) < 5.0
+        self._route_debug_snapshot()
+        return route_goal_reached(self._ego_vehicle, self._goal_location,
+                                  self._route_locations, self._route_progress_index)
 
     def destroy(self) -> None:
         self.clear_activation_hooks()
@@ -169,6 +195,7 @@ class PclaAdapter:
         summary = {
             "agent_name": self._agent_name,
             "status": "ready",
+            "gnss_route_normalized": self._agent_name == "if_if",
             "torch_model_available": True,
             "agent_instance_type": type(self._pcla.agent_instance).__name__,
             "model_type": type(self.torch_model).__name__,
@@ -269,6 +296,7 @@ class PclaAdapter:
             getattr(agent_instance, "model", None),
             getattr(agent_instance, "network", None),
             getattr(agent_instance, "policy", None),
+            getattr(agent_instance, "lidar_model", None),
         ]
 
         for inference_attr in ("closed_loop_inference", "open_loop_inference"):

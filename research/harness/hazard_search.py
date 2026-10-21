@@ -206,11 +206,34 @@ OBLIGATION_TEMPLATE_MAP: dict[str, str] = {
     "other: pedestrian": "pedestrian_crossing",
     "crossing_path(pedestrian,ego)": "pedestrian_crossing",
     "jaywalking(pedestrian)": "pedestrian_crossing",
+    "in_front_of(pedestrian,ego)": "pedestrian_crossing",
+    "approaching(pedestrian,ego)": "pedestrian_crossing",
+    "obstructing(pedestrian,ego)": "pedestrian_crossing",
+    "same_lane(pedestrian,ego)": "pedestrian_crossing",
+    "adjacent_lane(pedestrian,ego)": "pedestrian_crossing",
+    "waiting(pedestrian)": "pedestrian_crossing",
+    "stationary(pedestrian)": "pedestrian_crossing",
+    "braking(pedestrian)": "pedestrian_crossing",
+    "moving(pedestrian)": "pedestrian_crossing",
+    "on_road(pedestrian)": "pedestrian_crossing",
+    "node(pedestrian)": "pedestrian_crossing",
     "other: ahead_or_waiting": "lead_vehicle_braking",
     "other: start_stop_or_stationary": "lead_vehicle_braking",
+    "other: turning": "lead_vehicle_braking",
+    "other: oncoming": "lead_vehicle_braking",
     "same_lane(vehicle,ego)": "lead_vehicle_braking",
     "in_front_of(vehicle,ego)": "lead_vehicle_braking",
+    "approaching(vehicle,ego)": "lead_vehicle_braking",
+    "obstructing(vehicle,ego)": "lead_vehicle_braking",
+    "adjacent_lane(vehicle,ego)": "lead_vehicle_braking",
+    "crossing_path(vehicle,ego)": "lead_vehicle_braking",
+    "oncoming(vehicle,ego)": "lead_vehicle_braking",
     "braking(vehicle)": "lead_vehicle_braking",
+    "turning(vehicle)": "lead_vehicle_braking",
+    "stationary(vehicle)": "lead_vehicle_braking",
+    "moving(vehicle)": "lead_vehicle_braking",
+    "on_road(vehicle)": "lead_vehicle_braking",
+    "node(vehicle)": "lead_vehicle_braking",
 }
 DEFAULT_TEMPLATE = "pedestrian_crossing"
 
@@ -269,19 +292,32 @@ class ObligationScheduler:
     uncovered: set[str]
     current: str | None = None
     history: list[str] = field(default_factory=list)
+    last_template: str | None = None
 
     @staticmethod
     def _priority(signature: str) -> int:
         if signature.startswith("hazard("):
             return 0
-        if "(" in signature and signature.split("(")[0] in {"crossing_path", "in_front_of", "same_lane", "approaching", "oncoming", "adjacent_lane"}:
+        if "(" in signature and signature.split("(")[0] in {"crossing_path", "in_front_of", "same_lane", "approaching", "oncoming", "adjacent_lane", "obstructing"}:
             return 1
         return 2
 
-    def next_target(self) -> str | None:
+    def next_target(self, prev_template: str | None = None) -> str | None:
         if not self.uncovered:
             return None
-        ranked = sorted(self.uncovered, key=lambda s: (self._priority(s), s))
+        tmpl_uncov: dict[str, int] = {}
+        for sig in self.uncovered:
+            t = self.template_for(sig)
+            tmpl_uncov[t] = tmpl_uncov.get(t, 0) + 1
+        ranked = sorted(
+            self.uncovered,
+            key=lambda s: (
+                prev_template is not None and self.template_for(s) == prev_template,
+                self._priority(s),
+                -tmpl_uncov.get(self.template_for(s), 0),
+                s,
+            ),
+        )
         return ranked[0]
 
     def template_for(self, signature: str) -> str:
@@ -294,10 +330,13 @@ class ObligationScheduler:
         """Advance if the current target is now covered. Returns True if advanced."""
         self.uncovered.difference_update(covered)
         previous = self.current
+        prev_template = self.template_for(previous) if previous is not None else self.last_template
         if previous in covered and previous not in self.history:
             self.history.append(previous)
         if self.current not in self.uncovered:
-            self.current = self.next_target()
+            self.current = self.next_target(prev_template=prev_template)
+        if self.current is not None:
+            self.last_template = self.template_for(self.current)
         return previous != self.current
 
     def select(self, uncovered: set[str], covered: set[str]) -> tuple[str | None, str]:
@@ -326,12 +365,14 @@ class ExploitTracker:
 
     Stage 1 covers the obligation. Stage 2 (this tracker) holds the scheduler on
     it until ``patience`` consecutive evaluations fail to raise the best
-    criticality, or ``cap`` evaluations have been spent after coverage. Only
-    then does the scheduler advance to the next gap.
+    criticality, ``cap`` evaluations have been spent after coverage, or maximum
+    criticality (2.0, an attributable collision) has already been achieved.
+    Only then does the scheduler advance to the next gap.
     """
 
     patience: int = 3
     cap: int = 8
+    min_criticality: float = 0.0
     target: str | None = None
     best: float = 0.0
     stale: int = 0
@@ -353,6 +394,8 @@ class ExploitTracker:
     def holding(self, target: str | None) -> bool:
         """True while ``target`` is covered but still worth exploiting."""
         if target is None or target != self.target or self.patience <= 0 or self.spent == 0:
+            return False
+        if self.best < self.min_criticality or self.best >= 2.0 - 1e-6:
             return False
         return self.stale < self.patience and self.spent < self.cap
 

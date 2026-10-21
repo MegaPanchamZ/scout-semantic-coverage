@@ -70,20 +70,18 @@ def make_agent(world: Any, ego_vehicle: Any, agent_config: AgentConfig, client: 
 
     if agent_config.kind == "autovla":
         from research.harness.autovla_bridge import AutoVlaAdapter
-        from research.harness.model_backends import make_backend
 
         if client is None:
             raise ValueError("AutoVLA requires a CARLA client instance.")
         ensure_local_carla_agents_on_path()
-        backend = make_backend(
-            agent_config.autovla_backend,
-            endpoint=agent_config.autovla_endpoint,
+        return AutoVlaAdapter(
+            world,
+            ego_vehicle,
+            client,
             repo_path=agent_config.repo_path,
             checkpoint_dir=agent_config.config_path,
-            timeout=agent_config.autovla_timeout,
-            model=agent_config.autovla_model,
+            **agent_config.init_kwargs,
         )
-        return AutoVlaAdapter(world, ego_vehicle, client, backend=backend)
 
     if agent_config.kind == "pcla":
         ensure_local_carla_agents_on_path()

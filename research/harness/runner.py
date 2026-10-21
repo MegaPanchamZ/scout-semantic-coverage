@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,25 @@ def _full_brake_control(carla: Any) -> Any:
     control = carla.VehicleControl()
     control.brake = 1.0
     return control
+
+
+def _control_cadence(config: AppConfig) -> tuple[float, int]:
+    logical_delta = config.harness.fixed_delta_seconds
+    native_pcla = config.agent.kind == "pcla" and config.agent.pcla_agent_name in {
+        "if_if", "lav_lav", "lav_fast", "simlingo_simlingo",
+    }
+    native_transfuser = config.agent.kind == "leaderboard-module" and config.agent.module_name in {"submission_agent", "transfuser_agent"}
+    if not (native_pcla or native_transfuser):
+        return logical_delta, 1
+    # These agents' PID, tracking and stop timers assume the upstream 20 Hz
+    # cadence. Preserve campaign/observer ticks while advancing native steps.
+    native_delta = 0.05
+    substeps = round(logical_delta / native_delta)
+    if substeps < 1 or abs(substeps * native_delta - logical_delta) > 1e-9:
+        raise ValueError("Native model logical timestep must be a positive multiple of 0.05 seconds")
+    if not config.harness.synchronous_mode:
+        raise ValueError("Native models require synchronous simulation at 20 Hz")
+    return native_delta, substeps
 
 
 def _spawn_actor_with_retries(world: Any, blueprint: Any, transform: Any, attempts: int = 10, ticks_between_attempts: int = 2) -> Any:
@@ -102,6 +122,8 @@ class HarnessRunner:
         return self._run_live(scenario)
 
     def _run_live(self, scenario: ScenarioSpec) -> RunResult:
+        run_started = time.perf_counter()
+        native_delta, control_substeps = _control_cadence(self.config)
         client = connect_client(
             self.config.harness.host,
             self.config.harness.port,
@@ -109,7 +131,7 @@ class HarnessRunner:
         )
         world = load_world(client, scenario.town)
         if self.config.harness.reload_world:
-            world = client.reload_world()
+            world = client.reload_world(False) if self.config.harness.keep_synchronous else client.reload_world()
         import random
         import numpy as np
         random.seed(self.config.harness.seed)
@@ -120,7 +142,7 @@ class HarnessRunner:
         original_settings = apply_world_settings(
             world,
             self.config.harness.synchronous_mode,
-            self.config.harness.fixed_delta_seconds,
+            native_delta,
         )
         collision_oracle = CollisionOracle()
         safety_oracle = SafetyOracle(tick_seconds=self.config.harness.fixed_delta_seconds)
@@ -191,11 +213,21 @@ class HarnessRunner:
                 context["startup_hold_ticks"] = 0
                 context["startup_hold_applied"] = False
 
+            driving_started = time.perf_counter()
+            control_wall_seconds = physics_wall_seconds = observer_wall_seconds = 0.0
             for tick in range(scenario.max_ticks):
-                control = agent.run_step()
+                for _ in range(control_substeps):
+                    step_started = time.perf_counter()
+                    control = agent.run_step()
+                    control_wall_seconds += time.perf_counter() - step_started
+                    step_started = time.perf_counter()
+                    ego_vehicle.apply_control(control)
+                    world.tick()
+                    physics_wall_seconds += time.perf_counter() - step_started
+                    if collision_oracle.events and self.config.run.stop_on_first_collision:
+                        break
+                observer_started = time.perf_counter()
                 context["last_control"] = _vehicle_control_to_dict(control)
-                ego_vehicle.apply_control(control)
-                world.tick()
                 ticks_executed = tick + 1
                 safety_oracle.tick(world, ego_vehicle, goal_transform.location)
                 speed_mps = _speed_mps(ego_vehicle)
@@ -232,7 +264,8 @@ class HarnessRunner:
                     )
                     break
 
-                if agent.done() or ego_vehicle.get_location().distance(goal_transform.location) < 5.0:
+                observer_wall_seconds += time.perf_counter() - observer_started
+                if agent.done():
                     reached_goal = True
                     break
 
@@ -254,10 +287,20 @@ class HarnessRunner:
                 safety_metrics=safety_oracle.metrics,
                 notes=notes,
                 metadata={
+                    "wall_seconds": time.perf_counter() - run_started,
+                    "driving_wall_seconds": time.perf_counter() - driving_started,
+                    "control_wall_seconds": control_wall_seconds,
+                    "physics_wall_seconds": physics_wall_seconds,
+                    "observer_wall_seconds": observer_wall_seconds,
                     "weather_preset": scenario.weather_preset,
                     "goal_spawn_index": scenario.goal_spawn_index,
                     "ego_spawn_index": scenario.ego_spawn_index,
                     "startup_hold_ticks": startup_hold_ticks,
+                    "logical_delta_seconds": self.config.harness.fixed_delta_seconds,
+                    "physics_delta_seconds": native_delta,
+                    "control_substeps": control_substeps,
+                    "execution_seed": self.config.harness.seed,
+                    "keep_synchronous": self.config.harness.keep_synchronous,
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                 },
             )
@@ -282,7 +325,8 @@ class HarnessRunner:
                     except RuntimeError:
                         pass
             try:
-                restore_world_settings(world, original_settings)
+                if not self.config.harness.keep_synchronous:
+                    restore_world_settings(world, original_settings)
             except RuntimeError:
                 pass
 
