@@ -73,7 +73,7 @@ def main():
             progressive_jobs.append(dict(job, id=f"{job['id']}-through-{target}", command=command))
     jobs = setup_jobs + progressive_jobs
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
-    args.manifest.write_text(json.dumps({"port": args.port, "server": {"carla_root": "/mnt/DevDrive/carla-0.9.16", "graphics_adapter": 0, "quality_level": args.quality_level}, "env": {"CUDA_VISIBLE_DEVICES": "1", "SCOUT_KEEP_SYNCHRONOUS": "1"}, "jobs": jobs}, indent=2) + "\n")
+    args.manifest.write_text(json.dumps({"port": args.port, "server": {"carla_root": "/opt/carla-0.9.16", "graphics_adapter": 0, "quality_level": args.quality_level}, "env": {"CUDA_VISIBLE_DEVICES": "1", "SCOUT_KEEP_SYNCHRONOUS": "1"}, "jobs": jobs}, indent=2) + "\n")
     print(f"Wrote {len(jobs)} jobs for {len(routes)} routes to {args.manifest}")
 
 

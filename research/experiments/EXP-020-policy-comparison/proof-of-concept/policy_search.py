@@ -92,7 +92,7 @@ from research.harness.search_space import (  # noqa: E402
 DIAGNOSTICS_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_inter_session_diagnostics.py"
 SHAKEDOWN_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_shakedown.py"
 DEFAULT_PYTHON = WORKSPACE_ROOT / "research" / ".venv" / "bin" / "python"
-DEFAULT_CARLA_ROOT = Path(os.environ.get("CARLA_ROOT", "/mnt/DevDrive/carla-0.9.16"))
+DEFAULT_CARLA_ROOT = Path(os.environ.get("CARLA_ROOT", "/opt/carla-0.9.16"))
 DEFAULT_OBLIGATIONS = [
     "stationary(ego)",
     "in_front_of(pedestrian,ego)",

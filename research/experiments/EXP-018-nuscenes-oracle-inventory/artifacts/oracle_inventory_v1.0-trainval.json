@@ -19245,7 +19245,7 @@
     "The `crossing_path` route proxy is the ego's executed trajectory over the whole scene; a self-intersecting route (for example a loop through a car park) can credit a crossing against a geometric branch the ego is not currently driving."
   ],
   "metadata": {
-    "dataset_root": "/mnt/DevDrive/development/MRES/datasets/NuScenes",
+    "dataset_root": "datasets/NuScenes",
     "determinism_hash": "9d97c60d63e05980d83a3abf698746506438bc8907ae51a80464112f4b373336",
     "dota_symbolic_available": true,
     "experiment": "EXP-018-nuscenes-oracle-inventory",
@@ -19265,7 +19265,7 @@
     },
     "scene_count_selected": 850,
     "scene_count_total": 850,
-    "script_path": "/mnt/DevDrive/development/MRES/research/experiments/EXP-018-nuscenes-oracle-inventory/proof-of-concept/build_oracle_inventory.py",
+    "script_path": "research/experiments/EXP-018-nuscenes-oracle-inventory/proof-of-concept/build_oracle_inventory.py",
     "script_sha256": "9fa6ab6a28f5d9de59d212fb5c4096c1f6e2a751893aa8001ee9729a4d32aed0",
     "split": "v1.0-trainval"
   },
