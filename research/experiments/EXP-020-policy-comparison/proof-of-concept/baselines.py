@@ -47,16 +47,37 @@ CAUSAL_PARAMS = {
 COLLISION_FITNESS = 1000.0
 
 
+def _effective_gap_m(row: dict) -> float | None:
+    """Extract minimum ego-to-actor distance in metres from either min_gap_m or safety_raw/safety_metrics."""
+    gap = row.get("min_gap_m")
+    if isinstance(gap, (int, float)) and not isinstance(gap, bool) and math.isfinite(float(gap)):
+        return float(gap)
+    for src_key in ("safety_raw", "safety_metrics"):
+        src = row.get(src_key)
+        if isinstance(src, dict):
+            dists = [
+                float(src[k])
+                for k in ("min_actor_distance_m", "min_pedestrian_distance_m", "min_vehicle_distance_m")
+                if isinstance(src.get(k), (int, float))
+                and not isinstance(src.get(k), bool)
+                and math.isfinite(float(src[k]))
+            ]
+            if dists:
+                return min(dists)
+    return None
+
+
 def gap_fitness(row: dict) -> float | None:
     """Higher is closer to a safety violation. Collision with an injected actor is the optimum."""
     if row.get("run_error"):
         return None
     if row.get("terminated_by_collision") or (row.get("collision_count") or 0) > 0:
         return COLLISION_FITNESS
-    gap = row.get("min_gap_m")
+    gap = _effective_gap_m(row)
     if gap is None:
         return None
     return -float(gap)
+
 
 
 def _normalised(space, values: dict[str, float]) -> list[float]:
@@ -250,7 +271,7 @@ CRIT_EDGES = (0.0, 1.0, 3.0, 6.0)          # gap (m) bin edges: collision | <1 |
 def criticality_bin(row: dict) -> int:
     if row.get("terminated_by_collision") or (row.get("collision_count") or 0) > 0:
         return 0
-    gap = row.get("min_gap_m")
+    gap = _effective_gap_m(row)
     if gap is None:
         return len(CRIT_EDGES)
     for i, e in enumerate(CRIT_EDGES[1:], start=1):
@@ -260,10 +281,17 @@ def criticality_bin(row: dict) -> int:
 
 
 def critical_pairs(row: dict) -> set[tuple]:
-    """(semantic signature, criticality bin) pairs exercised by a run: a signature seen at bin b also covers all bins > b
-    (a closer encounter subsumes a looser one), so credit measures progress toward critical situations only."""
+    """(semantic obligation/signature, criticality bin) pairs exercised by a run.
+
+    Uses ``engine_run_obligations`` from the stated NuScenes oracle inventory when
+    available, falling back to ``semantic_covered_signatures`` only when engine
+    metrics are absent. A signature seen at bin ``b`` also covers all looser bins
+    ``k >= b`` (a closer encounter subsumes a looser one).
+    """
     b = criticality_bin(row)
-    sigs = row.get("semantic_covered_signatures") or []
+    sigs = row.get("engine_run_obligations")
+    if sigs is None:
+        sigs = row.get("semantic_covered_signatures") or []
     return {(s, k) for s in sigs for k in range(b, len(CRIT_EDGES) + 1)}
 
 
@@ -272,18 +300,28 @@ def _make_semantic_crit(space, base_cls):
         def __init__(self, policy, space):
             super().__init__(policy, space)
             self.covered: set[tuple] = set()
+            self.best_pairs: set[tuple] = set()
             self.best_new = -1.0
             self.best_gap_key = float("-inf")
 
         def observe(self, values, fitness, tiebreak=None, row=None, **kw):
             if not values or row is None or row.get("run_error"):
                 return
+            if self.best_values is not None:
+                self.best_new = float(len(self.best_pairs - self.covered))
             pairs = critical_pairs(row)
-            new = len(pairs - self.covered)
+            new = float(len(pairs - self.covered))
             self.covered |= pairs
             gap = gap_fitness(row)                      # higher = closer to a violation
-            key = (float(new), float(gap if gap is not None else -50.0))
-            if key > (self.best_new, self.best_gap_key):
-                self.best_new, self.best_gap_key, self.best_values = key[0], key[1], dict(values)
-                self.best_fitness = float(new)
+            if gap is None:
+                from research.harness.criticality import criticality_score
+                gap = float(row.get("criticality", criticality_score(row)))
+            gap_key = float(gap if gap is not None else -50.0)
+            if (new, gap_key) > (self.best_new, self.best_gap_key):
+                self.best_new = new
+                self.best_gap_key = gap_key
+                self.best_values = dict(values)
+                self.best_pairs = set(pairs)
+                self.best_fitness = new
     return SemanticCritState("semantic_crit", space)
+

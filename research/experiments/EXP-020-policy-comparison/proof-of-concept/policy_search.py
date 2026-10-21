@@ -77,6 +77,7 @@ from research.harness.hazard_search import (  # noqa: E402
     HAZARD_TEMPLATES,
     OBLIGATION_TEMPLATE_MAP,
     ObligationScheduler,
+    identify_instantiable_templates,
 )
 from research.harness.safety_outcomes import classify_run  # noqa: E402
 from research.harness.shared_suite import SharedSuiteStore  # noqa: E402
@@ -91,7 +92,7 @@ from research.harness.search_space import (  # noqa: E402
 DIAGNOSTICS_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_inter_session_diagnostics.py"
 SHAKEDOWN_SCRIPT = WORKSPACE_ROOT / "research" / "harness" / "run_shakedown.py"
 DEFAULT_PYTHON = WORKSPACE_ROOT / "research" / ".venv" / "bin" / "python"
-DEFAULT_CARLA_ROOT = Path(os.environ.get("CARLA_ROOT", str(Path.home() / "carla-0.9.16")))
+DEFAULT_CARLA_ROOT = Path(os.environ.get("CARLA_ROOT", "/mnt/DevDrive/carla-0.9.16"))
 DEFAULT_OBLIGATIONS = [
     "stationary(ego)",
     "in_front_of(pedestrian,ego)",
@@ -221,9 +222,10 @@ def _ensure_server(args: argparse.Namespace, port: int) -> None:
         f"-carla-rpc-port={port}",
         f"-quality-level={args.carla_quality}",
         "-RenderOffScreen",
-        "-opengl",
         "-nosound",
     ]
+    if os.environ.get("SCOUT_CARLA_OPENGL") == "1":
+        command.append("-opengl")
     if args.graphics_adapter is not None:
         command.append(f"-graphicsadapter={args.graphics_adapter}")
     logs_dir = args.output_dir / "server_logs"
@@ -327,24 +329,34 @@ class EngineCoverageState:
         self.suite_covered: set[str] = set()
         self.first_uncover: dict[str, int] = {}
         self._mapped_counts: dict[str, int] | None = None
+        self._total_counts: dict[str, int] | None = None
         self._axis_by_signature: dict[str, str] = {}
+        if oracle is not None:
+            self._learn_mapping(compute_cov(self.oracle, []))
 
     def _learn_mapping(self, report: dict) -> None:
-        """Cache the (trace-independent) mapped obligation counts and axis index."""
+        """Cache the (trace-independent) mapped and total obligation counts and axis index."""
         if self._mapped_counts is not None:
             return
         counts: dict[str, int] = {}
+        total_counts: dict[str, int] = {}
         for axis in ENGINE_AXES:
             section = report["dimensions"][axis]
             counts[axis] = int(section["mapped_obligations"])
+            total_counts[axis] = int(section.get("total_obligations", len(section["obligations"])))
             for row in section["obligations"]:
                 if row.get("mapped"):
                     self._axis_by_signature[str(row["signature"])] = axis
         self._mapped_counts = counts
+        self._total_counts = total_counts
 
     @property
     def mapped_total(self) -> int:
         return sum(self._mapped_counts.values()) if self._mapped_counts else 0
+
+    @property
+    def oracle_total(self) -> int:
+        return sum(self._total_counts.values()) if self._total_counts else 0
 
     def observe_stream(self, semantic_dir: Path, eval_index: int) -> dict:
         """Score one evaluation's stream and return the additive engine columns."""
@@ -380,10 +392,13 @@ class EngineCoverageState:
             "engine_new_obligations": len(new_obligations),
             "engine_run_covered_count": len(run_covered),
             "engine_uncovered_count": self.mapped_total - len(self.suite_covered),
+            "engine_mapped_total": self.mapped_total,
+            "engine_oracle_total": self.oracle_total,
             "engine_first_uncover": dict(sorted(self.first_uncover.items())),
             "engine_error": None,
         }
         counts = self._mapped_counts or {axis: 0 for axis in ENGINE_AXES}
+        totals = self._total_counts or {axis: 0 for axis in ENGINE_AXES}
         for axis in ENGINE_AXES:
             covered = sum(
                 1
@@ -391,7 +406,9 @@ class EngineCoverageState:
                 if self._axis_by_signature.get(signature) == axis
             )
             total = counts.get(axis, 0)
+            full_total = totals.get(axis, 0)
             metrics[f"engine_cov_{axis.lower()}"] = (covered / total) if total else None
+            metrics[f"engine_full_cov_{axis.lower()}"] = (covered / full_total) if full_total else None
         return metrics
 
     def restore_from_row(self, row: dict) -> None:
@@ -530,16 +547,23 @@ def _semantic_fitness(row: dict, policy: str, *, engine_active: bool = False) ->
             return _as_float(row.get("engine_new_obligations"))
         fulfilled = row.get("semantic_fulfilled_obligations")
         if isinstance(fulfilled, list):
-            return float(len(fulfilled)) + (1.0 if row.get("terminated_by_collision") else 0.0)
+            return float(len(fulfilled))
         return None
     return None
 
 
 def _semantic_tiebreak(row: dict, policy: str, *, engine_active: bool = False) -> float | None:
-    """Second selection key for the engine-driven semantic elite: run-witnessed count."""
-    if policy != "semantic" or not engine_active:
-        return None
-    return _as_float(row.get("engine_run_covered_count"))
+    """Second selection key for guided policies."""
+    if policy == "critonly":
+        from baselines import gap_fitness
+        return gap_fitness(row)
+    if policy == "semantic":
+        if engine_active:
+            return _as_float(row.get("engine_run_covered_count"))
+        sigs = row.get("semantic_covered_signatures")
+        if isinstance(sigs, list):
+            return float(len(sigs))
+    return None
 
 
 def _inject_obligations(payload: dict, obligations: list[str]) -> None:
@@ -884,12 +908,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pcla-agent", default="if_if")
     parser.add_argument("--hazard-stall-limit", type=int, default=12,
                         help="Skip a hazard target after this many attempts without a credit.")
-    parser.add_argument("--criticality", action=argparse.BooleanOptionalAction, default=True,
-                        help="Semantic policy: rank candidates within a target by run criticality "
-                             "(min TTC / distance / deceleration / collision). --no-criticality is the ablation.")
-    parser.add_argument("--hazard-exploit-patience", type=int, default=3,
-                        help="Semantic policy: after a target is witnessed, keep searching it until this many "
-                             "consecutive evals fail to raise criticality (0 = advance immediately).")
+    parser.add_argument("--criticality", action=argparse.BooleanOptionalAction, default=None,
+                        help="Rank candidates within a target by run criticality "
+                             "(defaults to False for 'semantic' and True for 'semantic_crit'/'critonly').")
+    parser.add_argument("--hazard-exploit-patience", type=int, default=None,
+                        help="After a target is witnessed, keep searching it until this many "
+                             "consecutive evals fail to raise criticality "
+                             "(defaults to 0 for 'semantic' and 3 for 'semantic_crit').")
     parser.add_argument("--hazard-exploit-cap", type=int, default=8,
                         help="Maximum evals spent exploiting one covered target.")
     parser.add_argument("--hazard-epsilon", type=float, default=0.2,
@@ -970,15 +995,17 @@ class _HazardPolicyState:
     exhausted, stalled, or the criticality-only ablation) the template name is
     the key, so exploration still reuses an elite.
 
-    Guided policies mutate the elite with an adaptive step size (shrinks on
-    improvement, widens on stagnation), mix in ``epsilon`` uniform samples, and
-    restart from a uniform sample after a long stall.
+    When ``target is None`` and ``witnesses`` / ``covered_before`` are supplied,
+    the stored elite's novelty is reassessed against ``covered_before`` prior to
+    comparison so that an early candidate cannot lock in a stale novelty count.
     """
 
     def __init__(self, policy: str, epsilon: float = 0.2) -> None:
         self.policy = policy
         self.epsilon = epsilon
         self.elites: dict[str, tuple[float, float, dict]] = {}  # key -> (fitness, tiebreak, candidate)
+        self.template_elites: dict[str, tuple[float, float, dict]] = {}
+        self.elite_witnesses: dict[str, set] = {}
         self.adapt: dict[str, AdaptiveMutation] = {}
 
     def _key(self, template_name: str, target: str | None) -> str:
@@ -987,7 +1014,10 @@ class _HazardPolicyState:
     def next_candidate(self, rng: random.Random, template_name: str, target: str | None = None) -> dict:
         template = HAZARD_TEMPLATES[template_name]
         key = self._key(template_name, target)
-        if self.policy == "random" or key not in self.elites:
+        if self.policy == "random":
+            return template.space.sample(rng)
+        elite_entry = self.elites.get(key) or self.template_elites.get(template_name)
+        if elite_entry is None:
             return template.space.sample(rng)
         adapt = self.adapt.setdefault(key, AdaptiveMutation())
         if adapt.should_restart():
@@ -995,7 +1025,7 @@ class _HazardPolicyState:
             return template.space.sample(rng)
         if rng.random() < self.epsilon:
             return template.space.sample(rng)
-        return template.space.mutate(self.elites[key][2], rng, scale=adapt.scale)
+        return template.space.mutate(elite_entry[2], rng, scale=adapt.scale)
 
     def observe(
         self,
@@ -1004,24 +1034,41 @@ class _HazardPolicyState:
         candidate: dict,
         fitness: float | None,
         tiebreak: float | None,
+        *,
+        witnesses: set | None = None,
+        covered_before: set | None = None,
     ) -> None:
         if fitness is None:
             return
         key = self._key(template_name, target)
         tie = tiebreak if tiebreak is not None else 0.0
         current = self.elites.get(key)
+        if current is not None and target is None and covered_before is not None and key in self.elite_witnesses:
+            reassessed = float(len(self.elite_witnesses[key] - covered_before))
+            current = (reassessed, current[1], current[2])
+            self.elites[key] = current
+        if current is None and (fitness, tie) <= (0.0, 0.0) and self.policy in ("semantic", "semantic_crit", "critonly"):
+            self.adapt.setdefault(key, AdaptiveMutation()).update(False)
+            return
         improved = current is None or (fitness, tie) > (current[0], current[1])
         self.adapt.setdefault(key, AdaptiveMutation()).update(improved)
         if improved:
             self.elites[key] = (float(fitness), float(tie), dict(candidate))
+            if witnesses is not None:
+                self.elite_witnesses[key] = set(witnesses)
+        if (fitness, tie) > (0.0, 0.0):
+            t_cur = self.template_elites.get(template_name)
+            if t_cur is None or (fitness, tie) > (t_cur[0], t_cur[1]):
+                self.template_elites[template_name] = (float(fitness), float(tie), dict(candidate))
 
 
 def _target_progress(oracle: Oracle, target: str | None, row: dict, *, use_criticality: bool = False) -> tuple[float, float]:
     """Reward the active obligation, with criticality then constituent witnesses as guidance.
 
     Lexicographic (covered, tiebreak): coverage of the target always dominates;
-    among equally covering runs the more critical one wins, and supporting
-    witnesses (0.01 each) break remaining ties and guide the pre-coverage stage.
+    among equally covering runs the more critical one wins (when ``use_criticality``
+    is enabled), and supporting witnesses break remaining ties and guide the
+    pre-coverage stage.
     """
     witnessed = set(row.get("engine_run_obligations") or [])
     obligation = next((o for o in oracle.obligations if o.signature == target), None)
@@ -1029,6 +1076,14 @@ def _target_progress(oracle: Oracle, target: str | None, row: dict, *, use_criti
         return 0.0, 0.0
     supporting = {o.signature for o in oracle.obligations if o.predicate in obligation.required_predicates and o.node_types and o.node_types[0] in obligation.node_types}
     support = float(len(witnessed & supporting))
+    if support == 0.0 and target not in witnessed and obligation.node_types:
+        primary_actor = obligation.node_types[0]
+        actor_obs = {
+            o.signature
+            for o in oracle.obligations
+            if o.node_types and o.node_types[0] == primary_actor and getattr(o, "dimension", "") != "hazard_class"
+        }
+        support = 0.05 * float(len(witnessed & actor_obs))
     if use_criticality:
         return float(target in witnessed), float(row.get("criticality", criticality_score(row))) + 0.01 * support
     return float(target in witnessed), support
@@ -1076,9 +1131,74 @@ def _pick_target(
     return scheduler.select(uncovered, covered)
 
 
+def _observe_hazard_row(
+    args: argparse.Namespace,
+    row: dict,
+    *,
+    engine_state: EngineCoverageState | None,
+    engine_active: bool,
+    hazard_state: _HazardPolicyState,
+    exploit: ExploitTracker,
+    covered_before: set[str] | None,
+    crit_covered: set[tuple[str, str]],
+) -> None:
+    """Update hazard search state and exploit tracker for one evaluated row."""
+    from baselines import critical_pairs, gap_fitness
+
+    template = str(row.get("template") or "")
+    target = row.get("hazard_target")
+    candidate = dict(row.get("candidate") or {})
+    if not template:
+        return
+    use_crit = bool(args.criticality)
+    witnesses: set | None = None
+    cov_before: set | None = None
+    if args.policy in ("semantic", "semantic_crit") and engine_state is not None:
+        if target is not None:
+            fitness_value, tiebreak_value = _target_progress(
+                engine_state.oracle, target, row, use_criticality=use_crit
+            )
+        elif args.policy == "semantic_crit":
+            pairs = critical_pairs(row)
+            cov_before = set(crit_covered)
+            witnesses = pairs
+            fitness_value = float(len(pairs - cov_before))
+            tiebreak_value = gap_fitness(row)
+        else:
+            run_obs = set(row.get("engine_run_obligations") or [])
+            cov_before = set(covered_before or set())
+            witnesses = run_obs
+            fitness_value = float(len(run_obs - cov_before))
+            tiebreak_value = float(len(run_obs))
+    else:
+        fitness_value = _semantic_fitness(row, args.policy, engine_active=engine_active)
+        tiebreak_value = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
+    if args.policy == "semantic_crit":
+        crit_covered |= critical_pairs(row)
+    hazard_state.observe(
+        template,
+        target,
+        candidate,
+        fitness_value,
+        tiebreak_value,
+        witnesses=witnesses,
+        covered_before=cov_before,
+    )
+    if args.policy in ("semantic", "semantic_crit") and exploit.patience > 0:
+        exploit.observe(
+            target,
+            str(target) in set(row.get("engine_run_obligations") or []),
+            float(row.get("criticality", criticality_score(row))),
+        )
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+    if args.criticality is None:
+        args.criticality = args.policy in ("semantic_crit", "critonly")
+    if args.hazard_exploit_patience is None:
+        args.hazard_exploit_patience = 3 if args.policy == "semantic_crit" else 0
     if args.engine_metrics and args.oracle is None:
         parser.error("--engine-metrics requires --oracle PATH")
     if args.hazard_search and not args.engine_metrics:
@@ -1110,13 +1230,15 @@ def main() -> None:
     hazard_state: _HazardPolicyState | None = None
     hazard_scheduler: ObligationScheduler | None = None
     hazard_target_attempts: dict[str, int] = {}
+    hazard_crit_covered: set[tuple[str, str]] = set()
     exploit = ExploitTracker(patience=args.hazard_exploit_patience, cap=args.hazard_exploit_cap)
     if args.hazard_search:
-        hazard_payloads["pedestrian_crossing"] = base_payload
-        lead_spec = next((path for path in _lead_braking_spec_candidates(args.base_spec) if path.exists()), None)
-        if lead_spec is not None:
-            hazard_payloads["lead_vehicle_braking"] = json.loads(lead_spec.read_text(encoding="utf-8"))
-        else:
+        hazard_payloads = identify_instantiable_templates(
+            args.base_spec,
+            base_payload,
+            lead_candidates=_lead_braking_spec_candidates(args.base_spec),
+        )
+        if "lead_vehicle_braking" not in hazard_payloads:
             print(json.dumps({"hazard_search_note": f"lead-braking spec missing for {args.base_spec.stem}; crossing template only"}))
         if engine_state is not None:
             hazard_universe = _mapped_hazard_universe(engine_state.oracle)
@@ -1136,6 +1258,7 @@ def main() -> None:
     rng = random.Random(args.seed)
     from baselines import make_policy_state
     state = make_policy_state(args.policy, space, PolicyState)
+    replay_covered: set[str] = set()
     for row in _iter_rows(rows_path):
         if row.get("rng_state"):
             version, internal, gaussian = row["rng_state"]
@@ -1149,31 +1272,28 @@ def main() -> None:
             covered_before=set(engine_state.suite_covered) if engine_state is not None else None,
             row=row,
         )
-        if engine_state is not None:
-            engine_state.restore_from_row(row)
-    if args.hazard_search and hazard_state is not None:
-        for row in _iter_rows(rows_path):
+        if args.hazard_search and hazard_state is not None:
             if row.get("hazard_target"):
                 hazard_target_attempts[str(row["hazard_target"])] = hazard_target_attempts.get(str(row["hazard_target"]), 0) + 1
             template = row.get("template")
             candidate = row.get("candidate")
-            if not template or not isinstance(candidate, dict):
-                continue
-            seen.add((str(template), json.dumps(candidate, sort_keys=True)))
-            if hazard_scheduler is not None:
-                hazard_scheduler.current = row.get("hazard_target")
-            if args.policy == "semantic" and engine_state is not None:
-                fitness, tiebreak = _target_progress(engine_state.oracle, row.get("hazard_target"), row, use_criticality=args.criticality)
-            else:
-                fitness = _semantic_fitness(row, args.policy, engine_active=engine_active)
-                tiebreak = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
-            hazard_state.observe(str(template), row.get("hazard_target"), candidate, fitness, tiebreak)
-            if args.policy == "semantic":
-                exploit.observe(
-                    row.get("hazard_target"),
-                    str(row.get("hazard_target")) in set(row.get("engine_run_obligations") or []),
-                    float(row.get("criticality", criticality_score(row))),
+            if template and isinstance(candidate, dict):
+                seen.add((str(template), json.dumps(candidate, sort_keys=True)))
+                if hazard_scheduler is not None:
+                    hazard_scheduler.current = row.get("hazard_target")
+                _observe_hazard_row(
+                    args,
+                    row,
+                    engine_state=engine_state,
+                    engine_active=engine_active,
+                    hazard_state=hazard_state,
+                    exploit=exploit,
+                    covered_before=set(replay_covered),
+                    crit_covered=hazard_crit_covered,
                 )
+            replay_covered |= set(row.get("engine_run_obligations") or [])
+        if engine_state is not None:
+            engine_state.restore_from_row(row)
 
     # Cross-route suite: union in coverage found on other routes/maps for this
     # policy arm so target selection reflects the campaign-wide uncovered set.
@@ -1213,10 +1333,15 @@ def main() -> None:
             payload = None
             if args.hazard_search and hazard_state is not None and hazard_scheduler is not None:
                 covered = set(engine_state.suite_covered) if engine_state is not None else set()
-                if args.policy == "critonly":
-                    target, template_name = None, DEFAULT_TEMPLATE_NAME
+                if args.policy not in ("semantic", "semantic_crit"):
+                    target = None
+                    template_name = sorted(hazard_payloads)[index % len(hazard_payloads)]
                 else:
-                    hold = exploit.target if args.policy == "semantic" and exploit.holding(exploit.target) else None
+                    hold = (
+                        exploit.target
+                        if exploit.patience > 0 and exploit.holding(exploit.target)
+                        else None
+                    )
                     target, template_name = _pick_target(
                         hazard_scheduler, covered, hazard_universe,
                         attempts=hazard_target_attempts, stall_limit=args.hazard_stall_limit, hold=hold,
@@ -1314,21 +1439,16 @@ def main() -> None:
             fitness_value = _semantic_fitness(row, args.policy, engine_active=engine_active)
             tiebreak_value = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
             if args.hazard_search and hazard_state is not None and row.get("template"):
-                if args.policy == "semantic" and engine_state is not None:
-                    fitness_value, tiebreak_value = _target_progress(engine_state.oracle, row.get("hazard_target"), row, use_criticality=args.criticality)
-                hazard_state.observe(
-                    str(row.get("template")),
-                    row.get("hazard_target"),
-                    dict(row.get("candidate") or {}),
-                    fitness_value,
-                    tiebreak_value,
+                _observe_hazard_row(
+                    args,
+                    row,
+                    engine_state=engine_state,
+                    engine_active=engine_active,
+                    hazard_state=hazard_state,
+                    exploit=exploit,
+                    covered_before=covered_before,
+                    crit_covered=hazard_crit_covered,
                 )
-                if args.policy == "semantic":
-                    exploit.observe(
-                        row.get("hazard_target"),
-                        str(row.get("hazard_target")) in set(row.get("engine_run_obligations") or []),
-                        float(row["criticality"]),
-                    )
             else:
                 state.observe(evaluated_values, fitness_value, tiebreak_value,
                               run_obligations=set(row.get("engine_run_obligations") or []) if engine_active else None,

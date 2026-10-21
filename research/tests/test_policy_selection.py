@@ -252,15 +252,16 @@ def test_engine_fitness_does_not_reward_collisions():
     )
 
 
-def test_semantic_engine_off_keeps_archived_formula():
+def test_semantic_engine_off_does_not_reward_collisions():
     row = _engine_row(
         semantic_fulfilled_obligations=["a", "b"],
+        semantic_covered_signatures=["a", "b", "c"],
         terminated_by_collision=True,
         engine_new_obligations=0,
         engine_run_covered_count=10,
     )
-    assert policy_search._semantic_fitness(row, "semantic") == 3.0
-    assert policy_search._semantic_tiebreak(row, "semantic") is None
+    assert policy_search._semantic_fitness(row, "semantic") == 2.0
+    assert policy_search._semantic_tiebreak(row, "semantic") == 3.0
 
 
 def test_gap_driven_semantic_elite_switches_to_gap_closer(space):
@@ -726,3 +727,91 @@ def test_hazard_campaign_holds_covered_target_for_exploitation(tmp_path, monkeyp
     assert [r["hazard_target"] for r in rows[:3]] == [target, target, target]
     assert rows[3]["hazard_target"] != target
     assert all("criticality" in r for r in rows)
+
+
+def test_semantic_crit_reassesses_novelty_against_current_covered_set(space):
+    """SCOUT_crit (semantic_crit) must reassess elite novelty against self.covered."""
+    from baselines import critical_pairs, make_policy_state
+
+    state = make_policy_state("semantic_crit", space, policy_search.PolicyState)
+    row0 = {
+        "engine_run_obligations": ["ob1", "ob2", "ob3"],
+        "min_gap_m": 15.0,
+        "terminated_by_collision": False,
+    }
+    assert critical_pairs(row0) == {("ob1", 4), ("ob2", 4), ("ob3", 4)}
+    state.observe({"trigger_radius_m": 25.0}, None, row=row0)
+    assert state.best_values == {"trigger_radius_m": 25.0}
+    assert state.best_new == 3.0
+
+    # Candidate 1 covers 1 genuinely NEW obligation ("ob4") with a closer gap (6.0 m).
+    # Before the fix, candidate 0's stale best_new=3.0 prevented candidate 1 (new=1.0)
+    # from becoming the elite even though candidate 0's obligations are already in self.covered!
+    row1 = {
+        "engine_run_obligations": ["ob4"],
+        "min_gap_m": 6.0,
+        "terminated_by_collision": False,
+    }
+    state.observe({"trigger_radius_m": 12.0}, None, row=row1)
+    assert state.best_values == {"trigger_radius_m": 12.0}
+    assert state.best_new == 1.0
+
+
+def test_distinguish_semantic_from_critonly_and_semantic_crit(tmp_path):
+    """Verify semantics-only, criticality-only, and combined guidance have distinct defaults and elites."""
+    parser = policy_search.build_parser()
+    base = str(_write_base_spec(tmp_path))
+    out = str(tmp_path / "out")
+
+    sem_args = parser.parse_args(["--policy", "semantic", "--base-spec", base, "--route-label", "r", "--output-dir", out])
+    crit_args = parser.parse_args(["--policy", "critonly", "--base-spec", base, "--route-label", "r", "--output-dir", out])
+    comb_args = parser.parse_args(["--policy", "semantic_crit", "--base-spec", base, "--route-label", "r", "--output-dir", out])
+
+    # Default resolution in main():
+    assert (sem_args.criticality if sem_args.criticality is not None else sem_args.policy in ("semantic_crit", "critonly")) is False
+    assert (crit_args.criticality if crit_args.criticality is not None else crit_args.policy in ("semantic_crit", "critonly")) is True
+    assert (comb_args.criticality if comb_args.criticality is not None else comb_args.policy in ("semantic_crit", "critonly")) is True
+
+    assert (3 if sem_args.policy == "semantic_crit" else 0) == 0
+    assert (3 if comb_args.policy == "semantic_crit" else 0) == 3
+
+    # Verify _HazardPolicyState reassesses novelty when target is None
+    hstate = policy_search._HazardPolicyState("semantic", epsilon=0.0)
+    c0 = {"trigger_radius_m": 25.0}
+    c1 = {"trigger_radius_m": 12.0}
+    hstate.observe("pedestrian_crossing", None, c0, 3.0, 3.0, witnesses={"o1", "o2", "o3"}, covered_before=set())
+    assert hstate.elites["pedestrian_crossing"][2] == c0
+    # After o1..o3 are covered, c0 has 0 new obligations against covered_before={"o1","o2","o3"}, so c1 (1 new) wins:
+    hstate.observe("pedestrian_crossing", None, c1, 1.0, 1.0, witnesses={"o4"}, covered_before={"o1", "o2", "o3"})
+    assert hstate.elites["pedestrian_crossing"][2] == c1
+
+
+def test_identify_instantiable_templates_and_trainval_denominators():
+    """Verify template identification on TARGET-style specs and 86/103 trainval denominators."""
+    from research.harness.hazard_search import identify_instantiable_templates
+
+    base_dir = policy_search.WORKSPACE_ROOT / "research" / "experiments" / "EXP-020-policy-comparison" / "artifacts" / "base_specs"
+    spec_path = base_dir / "town01_spawn0_goal82.json"
+    payload = json.loads(spec_path.read_text(encoding="utf-8"))
+    templates = identify_instantiable_templates(
+        spec_path,
+        payload,
+        lead_candidates=policy_search._lead_braking_spec_candidates(spec_path),
+    )
+    assert set(templates.keys()) == {"pedestrian_crossing", "lead_vehicle_braking"}
+
+    oracle_path = (
+        policy_search.WORKSPACE_ROOT
+        / "research"
+        / "experiments"
+        / "EXP-018-nuscenes-oracle-inventory"
+        / "artifacts"
+        / "oracle_inventory_v1.0-trainval.json"
+    )
+    oracle = policy_search.load_oracle(oracle_path)
+    estate = policy_search.EngineCoverageState(oracle)
+    assert estate.mapped_total == 86
+    assert estate.oracle_total == 103
+    assert estate._mapped_counts == {"V": 7, "A": 38, "E": 32, "H": 9}
+    assert estate._total_counts == {"V": 8, "A": 51, "E": 35, "H": 9}
+

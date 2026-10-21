@@ -34,8 +34,8 @@ SEARCH=research/experiments/EXP-020-policy-comparison/proof-of-concept/policy_se
 BASE=research/experiments/EXP-020-policy-comparison/artifacts/base_specs
 OUT="${SCOUT_OUTPUT_ROOT:-research/logs/fse_search_hazard_v2/seed-${SCOUT_SEED:-13}}"
 ORACLE=research/experiments/EXP-018-nuscenes-oracle-inventory/artifacts/oracle_inventory_v1.0-trainval.json
-EVALS="${SCOUT_EVALS:-50}"
-CONTROLS="${SCOUT_CONTROLS:-8}"
+EVALS="${SCOUT_EVALS:-5}"
+CONTROLS="${SCOUT_CONTROLS:-5}"
 
 case "$WORKER" in
   A) PORT=2000; CUDA=0
@@ -60,12 +60,12 @@ esac
 GPU="${SCOUT_GPU:-$CUDA}"
 ROUTES="${SCOUT_ROUTES:-$ROUTES}"
 PORT="${SCOUT_PORT:-$PORT}"
-POLICIES="${SCOUT_POLICIES:-random lsa kmnc semantic}"
+POLICIES="${SCOUT_POLICIES:-random semantic critonly semantic_crit}"
 
 mkdir -p "$OUT"
 
 for route in $ROUTES; do
-  SPEC="$BASE/${route}${SCOUT_BASE_SUFFIX:-_benign_seed0}.json"
+  SPEC="$BASE/${route}${SCOUT_BASE_SUFFIX:-}.json"
   [ -f "$SPEC" ] || SPEC="$BASE/${route}.json"
   for policy in $POLICIES; do
     echo "=== $(date -Is) worker ${WORKER} route ${route} policy ${policy} ==="

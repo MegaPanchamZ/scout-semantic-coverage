@@ -24,14 +24,13 @@ OUT="${SCOUT_OUTPUT_ROOT:-research/logs/rq3_if}"
 EVALS="${SCOUT_EVALS:-5}"
 SEEDS="${SCOUT_SEEDS:-13 14 15}"
 ROUTES="${SCOUT_ROUTES:-town01_spawn0_goal82 town01_spawn195_goal197 town01_spawn68_goal218 town01_spawn82_goal200}"
-POLICIES="${SCOUT_POLICIES:-semantic random lsa kmnc}"
+POLICIES="${SCOUT_POLICIES:-random semantic critonly semantic_crit}"
 PORTS="${PORTS:-2000 2010}"
 MAX_TICKS="${SCOUT_MAX_TICKS:-400}"
 TIMEOUT="${SCOUT_EVAL_TIMEOUT:-900}"
-GPU="${SCOUT_GPU:-0}"
+GPU="${SCOUT_GPU:-}"
+NUM_GPUS="${SCOUT_NUM_GPUS:-2}"
 RECYCLE_MIB="${SCOUT_RECYCLE_MIB:-7500}"
-# CARLA servers are owned by research/scripts/carla_supervisor.sh
-export SCOUT_CARLA_SUPERVISED=1
 
 mkdir -p "$OUT"
 QUEUE="$OUT/queue.txt"
@@ -57,38 +56,37 @@ next_unit() {
 
 server_mib() {
   # GPU memory held by the CARLA server on port $1
-  local pids; pids=" $(pgrep -u carla -f "carla-rpc-port=${1}( |$)" | tr '\n' ' ') "
+  local pids; pids=" $(pgrep -f "carla-rpc-port=${1}( |$)" | tr '\n' ' ') "
   nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits |
     awk -F', ' -v p="$pids" 'index(p, " "$1" ") {s += $2} END {print s + 0}'
 }
 
 worker() {
   local port="$1"
+  local wgpu="$2"
   while :; do
     local unit; unit="$(next_unit)"
     [ -n "$unit" ] || break
-    # CARLA's GPU memory grows over hours; past RECYCLE_MIB eight servers plus
-    # their agents no longer fit and agents fail with CUDA OOM. Recycle the
-    # server between units; carla_supervisor.sh restarts and warms it.
     if [ "$(server_mib "$port")" -gt "$RECYCLE_MIB" ]; then
       echo "=== $(date -Is) port ${port} RECYCLE server ($(server_mib "$port") MiB) ==="
-      pkill -u carla -f "carla-rpc-port=${port}( |$)"
-      sleep 15
+      pkill -f "carla-rpc-port=${1}( |$)" || true
+      sleep 10
     fi
     read -r seed route policy <<<"$unit"
-    local spec="$BASE/${route}_benign_seed0.json"
+    local spec="$BASE/${route}${SCOUT_BASE_SUFFIX:-}.json"
+    [ -f "$spec" ] || spec="$BASE/${route}.json"
     local dir="$OUT/seed-${seed}/${route}/${policy}"
     local extra=(--policy "$policy" --hazard-search --search-space campaign)
     [ "$policy" = control ] && extra=(--policy random --control)
     mkdir -p "$(dirname "$dir")"
-    echo "=== $(date -Is) port ${port} START ${unit} ==="
-    CUDA_VISIBLE_DEVICES="$GPU" "$PY" "$SEARCH" "${extra[@]}" \
+    echo "=== $(date -Is) port ${port} gpu ${wgpu} START ${unit} ==="
+    CUDA_VISIBLE_DEVICES="$wgpu" "$PY" "$SEARCH" "${extra[@]}" \
       --python-executable "$PY" --seed "$seed" \
       --base-spec "$spec" --route-label "$route" --output-dir "$dir" \
       --evals "$EVALS" --server-port "$port" \
       --eval-timeout-seconds "$TIMEOUT" --max-ticks "$MAX_TICKS" \
       --engine-metrics --oracle "$ORACLE" \
-      --cuda-visible-devices "$GPU" --graphics-adapter "$GPU" \
+      --cuda-visible-devices "$wgpu" --graphics-adapter "$wgpu" \
       > "$dir.log" 2>&1 || echo "=== port ${port} FAILED ${unit} (see $dir.log) ==="
     if grep -q "server unavailable\|did not become ready" "$dir/rows.jsonl" 2>/dev/null; then
       # a server crash ate evals: drop rows from the first failed eval on and
@@ -110,13 +108,16 @@ EOF
       ( flock -x 9; echo "$unit" >> "$QUEUE" ) 9>"$LOCK"
       echo "=== port ${port} REQUEUED ${unit} (server failure) ==="
     fi
-    echo "=== $(date -Is) port ${port} DONE ${unit} ==="
+    echo "=== $(date -Is) port ${port} gpu ${wgpu} DONE ${unit} ==="
   done
 }
 
+idx=0
 for port in $PORTS; do
   mkdir -p "$OUT"
-  worker "$port" &
+  wgpu="${GPU:-$(( idx % NUM_GPUS ))}"
+  worker "$port" "$wgpu" &
+  idx=$(( idx + 1 ))
   sleep 20   # stagger startups so model loads don't collide
 done
 wait

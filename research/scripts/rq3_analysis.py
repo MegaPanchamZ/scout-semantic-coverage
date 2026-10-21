@@ -34,8 +34,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from research.harness.safety_outcomes import classify_run  # noqa: E402
 
-POLICIES = ("semantic", "random", "lsa", "kmnc")
-POLICY_LABEL = {"semantic": "SCOUT", "random": "Random", "lsa": "LSA", "kmnc": "KMNC"}
+POLICIES = ("semantic_crit", "semantic", "critonly", "random", "lsa", "kmnc", "avfuzzer", "causal")
+POLICY_LABEL = {
+    "semantic_crit": "SCOUT_crit",
+    "semantic": "SCOUT",
+    "critonly": "Criticality-only",
+    "random": "Random",
+    "lsa": "LSA",
+    "kmnc": "KMNC",
+    "avfuzzer": "AV-Fuzzer",
+    "causal": "Causal-Fuzzer-style",
+}
 # reported issue types -> constituent outcome names
 ISSUE_TYPES = {
     "Collision": ("collision",),
@@ -119,7 +128,7 @@ def analyse(root: Path, budget: int) -> dict:
                     continue
                 run = {"seed": seed_dir.name, "route": route_dir.name, "policy": policy,
                        "evals": 0, "pairs": 0, "counts": Counter(), "first": None}
-                for row in cand_rows:
+                for row in cand_rows[:budget]:
                     index = row.get("eval_index", 0)
                     run["evals"] += 1
                     cand = _issues(row)
@@ -154,12 +163,13 @@ def report(ads: str, data: dict) -> list[str]:
     by_policy = defaultdict(list)
     for run in runs:
         by_policy[run["policy"]].append(run)
+    active_policies = [p for p in POLICIES if by_policy.get(p)] or list(POLICIES[:4])
 
     lines += ["### 1. Attributable safety issues per independent run (mean ± sd)", ""]
     cols = list(ISSUE_TYPES) + ["Any"]
     lines.append("| Policy | Runs | Valid pairs | Invalid | " + " | ".join(cols) + " |")
     lines.append("|" + "---|" * (len(cols) + 4))
-    for p in POLICIES:
+    for p in active_policies:
         rs = by_policy.get(p, [])
         cells = [_mean_sd([r["counts"][c] for r in rs]) for c in cols]
         lines.append(f"| {POLICY_LABEL[p]} | {len(rs)} | {sum(r['pairs'] for r in rs)} | {invalid[p]} | " + " | ".join(cells) + " |")
@@ -168,7 +178,7 @@ def report(ads: str, data: dict) -> list[str]:
     lines.append("")
     lines.append("| Policy | " + " | ".join(cols) + " |")
     lines.append("|" + "---|" * (len(cols) + 1))
-    for p in POLICIES:
+    for p in active_policies:
         rs = by_policy.get(p, [])
         lines.append(f"| {POLICY_LABEL[p]} | " + " | ".join(str(sum(r["counts"][c] for r in rs)) for c in cols) + " |")
     lines.append("")
@@ -176,7 +186,7 @@ def report(ads: str, data: dict) -> list[str]:
     lines += ["### 3. Evals to first attributable safety issue (any hard type)", ""]
     lines.append("| Policy | Runs | Found | Find rate | Evals to first (found runs, mean ± sd) | Censored mean (not found = budget+1) |")
     lines.append("|---|---|---|---|---|---|")
-    for p in POLICIES:
+    for p in active_policies:
         rs = by_policy.get(p, [])
         found = [r["first"] for r in rs if r["first"] is not None]
         censored = [r["first"] if r["first"] is not None else r["evals"] + 1 for r in rs]

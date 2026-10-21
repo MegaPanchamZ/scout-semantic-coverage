@@ -16,6 +16,7 @@ gradient. The harsh-braking outcome still reports it separately.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 TTC_REF_S = 1.5
@@ -42,8 +43,12 @@ def criticality_score(row: dict[str, Any]) -> float:
         terms.append(TTC_REF_S / ttc)
     elif ttc is not None:
         terms.append(1.0)
-    for key in ("min_pedestrian_distance_m", "min_vehicle_distance_m"):
+    for key in ("min_pedestrian_distance_m", "min_vehicle_distance_m", "min_actor_distance_m"):
         dist = _num(raw.get(key))
-        if dist is not None:
+        if dist is not None and math.isfinite(dist):
             terms.append(DIST_REF_M / max(dist, 0.1))
+    gap = _num(row.get("min_gap_m"))
+    if gap is not None and math.isfinite(gap):
+        terms.append(DIST_REF_M / max(gap, 0.1))
     return round(min(1.0, max(terms)), 4)
+

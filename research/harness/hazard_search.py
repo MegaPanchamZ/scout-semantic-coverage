@@ -215,6 +215,51 @@ OBLIGATION_TEMPLATE_MAP: dict[str, str] = {
 DEFAULT_TEMPLATE = "pedestrian_crossing"
 
 
+def identify_instantiable_templates(
+    base_spec: pathlib.Path | None,
+    base_payload: dict[str, Any],
+    *,
+    lead_candidates: list[pathlib.Path] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Inspect a generated scenario specification and return the hazard templates
+    (name -> base ScenarioSpec dict) that can be instantiated on it.
+    """
+    payloads: dict[str, dict[str, Any]] = {}
+    controller = str(base_payload.get("controller") or "")
+    cp = base_payload.get("controller_params") or {}
+
+    if controller == "lead_vehicle_braking" or (cp.get("route_polyline") and "spawn_transform" not in cp):
+        payloads["lead_vehicle_braking"] = base_payload
+        if base_spec is not None and base_spec.stem.endswith("_lead_braking"):
+            crossing_stem = base_spec.stem[: -len("_lead_braking")]
+            crossing_path = base_spec.with_name(crossing_stem + ".json")
+            if crossing_path.exists():
+                try:
+                    payloads["pedestrian_crossing"] = json.loads(crossing_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    pass
+    else:
+        payloads["pedestrian_crossing"] = base_payload
+        if cp.get("route_polyline") and controller == "lead_vehicle_braking":
+            payloads["lead_vehicle_braking"] = base_payload
+        else:
+            candidates = list(lead_candidates or [])
+            if base_spec is not None and not candidates:
+                candidates.append(base_spec.with_name(base_spec.stem + "_lead_braking.json"))
+                marker = "_benign_seed"
+                idx = base_spec.stem.find(marker)
+                if idx != -1:
+                    candidates.append(base_spec.with_name(base_spec.stem[:idx] + "_lead_braking.json"))
+            for path in candidates:
+                if path.exists():
+                    try:
+                        payloads["lead_vehicle_braking"] = json.loads(path.read_text(encoding="utf-8"))
+                        break
+                    except (OSError, json.JSONDecodeError):
+                        continue
+    return payloads
+
+
 # ---------------------------------------------------------------------------
 # Obligation scheduler
 # ---------------------------------------------------------------------------
