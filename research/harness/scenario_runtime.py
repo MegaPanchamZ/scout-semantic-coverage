@@ -8,9 +8,34 @@ from typing import Any
 from research.harness.models import ScenarioSpec
 
 
+def _record_role_and_trigger(
+    context: dict[str, Any],
+    *,
+    actor: Any | None = None,
+    role: str | None = None,
+    trigger: dict[str, Any] | None = None,
+) -> None:
+    if actor is not None and role:
+        roles = context.setdefault("actor_roles", {})
+        if isinstance(roles, dict) and hasattr(actor, "id"):
+            roles[int(actor.id)] = role
+    if trigger is not None:
+        events = context.setdefault("scenario_trigger_events", [])
+        if isinstance(events, list):
+            entry = dict(trigger)
+            if "sim_frame" not in entry and context.get("sim_frame") is not None:
+                entry["sim_frame"] = int(context["sim_frame"])
+            if "sim_time_s" not in entry and context.get("sim_time_s") is not None:
+                entry["sim_time_s"] = float(context["sim_time_s"])
+            events.append(entry)
+
+
 @dataclass(slots=True)
 class ScenarioController:
     spawned_actors: list[Any] = field(default_factory=list)
+    expected_actor_count: int = 0
+    setup_succeeded: bool = True
+    spawn_failures: list[str] = field(default_factory=list)
 
     def setup(self, context: dict[str, Any]) -> None:
         return None
@@ -57,10 +82,14 @@ class RelativeJaywalkerController(ScenarioController):
         walker_bp = world.get_blueprint_library().filter("walker.pedestrian.*")[0]
         if walker_bp.has_attribute("is_invincible"):
             walker_bp.set_attribute("is_invincible", "false")
+        self.expected_actor_count = 1
         walker = world.try_spawn_actor(walker_bp, carla.Transform(spawn_location, spawn_rotation))
         if walker is None:
+            self.setup_succeeded = False
+            self.spawn_failures.append("jaywalker_spawn_failed")
             context.setdefault("scenario_notes", []).append("Failed to spawn jaywalker actor.")
             return
+        self.spawned_actors.append(walker)
 
         direction = carla.Vector3D(
             x=right.x * self.params["crossing_direction"],
@@ -69,8 +98,8 @@ class RelativeJaywalkerController(ScenarioController):
         )
         self._walker = walker
         self._walker_control = carla.WalkerControl(direction=direction, speed=self.params["walker_speed"])
-        self.spawned_actors.append(walker)
         context["jaywalker"] = walker
+        _record_role_and_trigger(context, actor=walker, role="pedestrian_subject")
 
     def on_tick(self, tick_index: int, context: dict[str, Any]) -> None:
         if self._walker is None or self._walker_control is None:
@@ -95,14 +124,18 @@ class RelativeOccludedJaywalkerController(RelativeJaywalkerController):
         )
         truck_bp = world.get_blueprint_library().filter("vehicle.carlamotors.firetruck")[0]
         truck_bp.set_attribute("role_name", "scenario_occluder")
+        self.expected_actor_count = 2
         truck = world.try_spawn_actor(truck_bp, carla.Transform(occluder_location, ego_transform.rotation))
         if truck is None:
+            self.setup_succeeded = False
+            self.spawn_failures.append("occluder_spawn_failed")
             context.setdefault("scenario_notes", []).append("Failed to spawn occluder vehicle.")
             return
+        self.spawned_actors.append(truck)
 
         truck.set_simulate_physics(False)
-        self.spawned_actors.append(truck)
         context["occluder_vehicle"] = truck
+        _record_role_and_trigger(context, actor=truck, role="scenario_occluder")
 
 
 def _location_from_dict(carla: Any, payload: dict[str, Any]) -> Any:
@@ -154,10 +187,13 @@ class ThresholdCrossingAdversaryController(ScenarioController):
         spawn_transform = carla.Transform(spawn_location, spawn_rotation)
         destination_location = _location_from_dict(carla, destination_payload)
 
+        self.expected_actor_count = 1
         if adversary_kind == "walker":
             blueprint_filter = str(self.params.get("blueprint_filter", "walker.pedestrian.*"))
             walker_bps = world.get_blueprint_library().filter(blueprint_filter)
             if not walker_bps:
+                self.setup_succeeded = False
+                self.spawn_failures.append("threshold_walker_blueprint_missing")
                 notes.append(f"No walker blueprints matched '{blueprint_filter}'.")
                 return
             walker_bp = walker_bps[0]
@@ -165,8 +201,11 @@ class ThresholdCrossingAdversaryController(ScenarioController):
                 walker_bp.set_attribute("is_invincible", "false")
             actor = world.try_spawn_actor(walker_bp, spawn_transform)
             if actor is None:
+                self.setup_succeeded = False
+                self.spawn_failures.append("threshold_walker_spawn_failed")
                 notes.append("Failed to spawn threshold-triggered walker adversary.")
                 return
+            self.spawned_actors.append(actor)
             self._walker_control = carla.WalkerControl(
                 direction=_normalize_vector(carla, spawn_location, destination_location),
                 speed=0.0,
@@ -177,14 +216,19 @@ class ThresholdCrossingAdversaryController(ScenarioController):
             blueprint_filter = str(self.params.get("blueprint_filter", "vehicle.*"))
             vehicle_bps = world.get_blueprint_library().filter(blueprint_filter)
             if not vehicle_bps:
+                self.setup_succeeded = False
+                self.spawn_failures.append("threshold_vehicle_blueprint_missing")
                 notes.append(f"No vehicle blueprints matched '{blueprint_filter}'.")
                 return
             vehicle_bp = vehicle_bps[0]
             vehicle_bp.set_attribute("role_name", "scenario_crossing_adversary")
             actor = world.try_spawn_actor(vehicle_bp, spawn_transform)
             if actor is None:
+                self.setup_succeeded = False
+                self.spawn_failures.append("threshold_vehicle_spawn_failed")
                 notes.append("Failed to spawn threshold-triggered vehicle adversary.")
                 return
+            self.spawned_actors.append(actor)
             try:
                 # Manual control is the default for spawned vehicles; skip when
                 # several CARLA servers share the default traffic-manager port.
@@ -202,12 +246,13 @@ class ThresholdCrossingAdversaryController(ScenarioController):
             raise ValueError(f"Unsupported threshold adversary kind '{adversary_kind}'")
 
         self._actor = actor
-        self.spawned_actors.append(actor)
+        role_name = "pedestrian_subject" if adversary_kind == "walker" else "crossing_vehicle_adversary"
         context["threshold_adversary"] = actor
         context["threshold_adversary_kind"] = adversary_kind
         context["threshold_adversary_active"] = False
         context["threshold_adversary_triggered"] = False
         context["threshold_trigger_location"] = dict(self.params["trigger_location"])
+        _record_role_and_trigger(context, actor=actor, role=role_name)
 
     def on_tick(self, tick_index: int, context: dict[str, Any]) -> None:
         if self._actor is None:
@@ -233,6 +278,18 @@ class ThresholdCrossingAdversaryController(ScenarioController):
                 trigger_reason = f"distance {trigger_distance:.2f} m"
             else:
                 trigger_reason = f"tick deadline {trigger_tick}"
+            role_name = "pedestrian_subject" if str(self.params.get("adversary_kind", "walker")) == "walker" else "crossing_vehicle_adversary"
+            _record_role_and_trigger(
+                context,
+                trigger={
+                    "controller": "threshold_crossing_adversary",
+                    "tick": int(tick_index),
+                    "actor_id": str(getattr(self._actor, "id", "")),
+                    "role": role_name,
+                    "distance_m": trigger_distance,
+                    "reason": trigger_reason,
+                },
+            )
             context.setdefault("scenario_notes", []).append(
                 f"Threshold adversary triggered at tick {tick_index + 1} ({trigger_reason})."
             )
@@ -264,8 +321,11 @@ class LaneDepartureAdversaryController(ScenarioController):
         carla = context["carla"]
         notes = context.setdefault("scenario_notes", [])
 
+        self.expected_actor_count = 1
         vehicle_bps = world.get_blueprint_library().filter(str(self.params.get("blueprint_filter", "vehicle.*")))
         if not vehicle_bps:
+            self.setup_succeeded = False
+            self.spawn_failures.append("lane_departure_blueprint_missing")
             notes.append("No vehicle blueprints matched the lane-departure adversary filter.")
             return
         vehicle_bp = vehicle_bps[0]
@@ -276,14 +336,17 @@ class LaneDepartureAdversaryController(ScenarioController):
         )
         actor = world.try_spawn_actor(vehicle_bp, staging_transform)
         if actor is None:
+            self.setup_succeeded = False
+            self.spawn_failures.append("lane_departure_spawn_failed")
             notes.append("Failed to spawn lane-departure adversary vehicle.")
             return
+        self.spawned_actors.append(actor)
         actor.set_simulate_physics(False)
         self._actor = actor
-        self.spawned_actors.append(actor)
         context["lane_departure_obstacle"] = actor
         context["lane_departure_adversary_active"] = False
         context["lane_departure_trigger_location"] = dict(self.params["trigger_location"])
+        _record_role_and_trigger(context, actor=actor, role="lane_departure_adversary")
 
     def on_tick(self, tick_index: int, context: dict[str, Any]) -> None:
         if self._actor is None or self._triggered:
@@ -305,6 +368,17 @@ class LaneDepartureAdversaryController(ScenarioController):
         self._actor.set_transform(active_transform)
         self._triggered = True
         context["lane_departure_adversary_active"] = True
+        context["actor_teleport_discontinuity"] = True
+        _record_role_and_trigger(
+            context,
+            trigger={
+                "controller": "lane_departure_adversary",
+                "tick": int(tick_index),
+                "actor_id": str(getattr(self._actor, "id", "")),
+                "role": "lane_departure_adversary",
+                "distance_m": trigger_distance,
+            },
+        )
         context.setdefault("scenario_notes", []).append(
             f"Lane-departure adversary activated at tick {tick_index + 1} (distance {trigger_distance:.2f} m)."
         )
@@ -333,8 +407,11 @@ class LeadVehicleBrakingController(ScenarioController):
         notes = context.setdefault("scenario_notes", [])
         self._tick_seconds = float(world.get_settings().fixed_delta_seconds or 0.1)
 
+        self.expected_actor_count = 1
         vehicle_bps = world.get_blueprint_library().filter(str(self.params.get("blueprint_filter", "vehicle.*")))
         if not vehicle_bps:
+            self.setup_succeeded = False
+            self.spawn_failures.append("lead_vehicle_blueprint_missing")
             notes.append("No vehicle blueprints matched the lead-vehicle adversary filter.")
             return
         vehicle_bp = vehicle_bps[0]
@@ -345,8 +422,11 @@ class LeadVehicleBrakingController(ScenarioController):
         )
         actor = world.try_spawn_actor(vehicle_bp, spawn_transform)
         if actor is None:
+            self.setup_succeeded = False
+            self.spawn_failures.append("lead_vehicle_spawn_failed")
             notes.append("Failed to spawn lead-vehicle braking adversary.")
             return
+        self.spawned_actors.append(actor)
         try:
             # Manual control is the default for spawned vehicles; skip when
             # several CARLA servers share the default traffic-manager port.
@@ -354,7 +434,6 @@ class LeadVehicleBrakingController(ScenarioController):
         except RuntimeError:
             pass
         self._actor = actor
-        self.spawned_actors.append(actor)
         self._pre_brake_control = carla.VehicleControl(
             throttle=float(self.params.get("pre_brake_throttle", 0.3)),
             brake=0.0,
@@ -371,6 +450,7 @@ class LeadVehicleBrakingController(ScenarioController):
         context["lead_vehicle"] = actor
         context["lead_vehicle_braking_active"] = False
         context["lead_vehicle_trigger_location"] = dict(self.params["trigger_location"])
+        _record_role_and_trigger(context, actor=actor, role="lead_vehicle")
 
     def on_tick(self, tick_index: int, context: dict[str, Any]) -> None:
         if self._actor is None:
@@ -385,6 +465,16 @@ class LeadVehicleBrakingController(ScenarioController):
             self._triggered = True
             self._trigger_tick = tick_index
             context["lead_vehicle_braking_active"] = True
+            _record_role_and_trigger(
+                context,
+                trigger={
+                    "controller": "lead_vehicle_braking",
+                    "tick": int(tick_index),
+                    "actor_id": str(getattr(self._actor, "id", "")),
+                    "role": "lead_vehicle",
+                    "distance_m": trigger_distance,
+                },
+            )
             context.setdefault("scenario_notes", []).append(
                 f"Lead-vehicle braking adversary triggered at tick {tick_index + 1} (distance {trigger_distance:.2f} m)."
             )
@@ -430,6 +520,61 @@ class LeadVehicleBrakingController(ScenarioController):
         return carla.VehicleControl(throttle=throttle, brake=0.0, steer=steer, hand_brake=False)
 
 
+class AdjacentVehicleController(ScenarioController):
+    """Non-teleporting parallel/adjacent vehicle for safe-interaction and near-miss negative controls."""
+
+    def __init__(self, params: dict[str, Any]) -> None:
+        super().__init__()
+        self.params = dict(params)
+        self._actor: Any | None = None
+        self._control: Any | None = None
+
+    def setup(self, context: dict[str, Any]) -> None:
+        world = context["world"]
+        carla = context["carla"]
+        notes = context.setdefault("scenario_notes", [])
+        self.expected_actor_count = 1
+        vehicle_bps = world.get_blueprint_library().filter(str(self.params.get("blueprint_filter", "vehicle.*")))
+        if not vehicle_bps:
+            self.setup_succeeded = False
+            self.spawn_failures.append("adjacent_vehicle_blueprint_missing")
+            notes.append("No vehicle blueprints matched the adjacent-vehicle filter.")
+            return
+        vehicle_bp = vehicle_bps[0]
+        vehicle_bp.set_attribute("role_name", "adjacent_vehicle")
+        transform_payload = dict(self.params.get("spawn_transform") or self.params["staging_transform"])
+        spawn_transform = carla.Transform(
+            _location_from_dict(carla, dict(transform_payload["location"])),
+            _rotation_from_dict(carla, transform_payload.get("rotation")),
+        )
+        actor = world.try_spawn_actor(vehicle_bp, spawn_transform)
+        if actor is None:
+            self.setup_succeeded = False
+            self.spawn_failures.append("adjacent_vehicle_spawn_failed")
+            notes.append("Failed to spawn adjacent vehicle.")
+            return
+        self.spawned_actors.append(actor)
+        try:
+            actor.set_autopilot(False)
+        except RuntimeError:
+            pass
+        self._actor = actor
+        self._control = carla.VehicleControl(
+            throttle=float(self.params.get("throttle", 0.35)),
+            brake=0.0,
+            steer=float(self.params.get("steer", 0.0)),
+            hand_brake=False,
+        )
+        actor.apply_control(self._control)
+        context["adjacent_vehicle"] = actor
+        _record_role_and_trigger(context, actor=actor, role="adjacent_vehicle")
+
+    def on_tick(self, tick_index: int, context: dict[str, Any]) -> None:
+        if self._actor is None or self._control is None:
+            return
+        self._actor.apply_control(self._control)
+
+
 def build_scenario_controller(scenario: ScenarioSpec) -> ScenarioController:
     if scenario.controller == "route_only":
         return RouteOnlyController()
@@ -441,6 +586,8 @@ def build_scenario_controller(scenario: ScenarioSpec) -> ScenarioController:
         return ThresholdCrossingAdversaryController(scenario.controller_params)
     if scenario.controller == "lane_departure_adversary":
         return LaneDepartureAdversaryController(scenario.controller_params)
+    if scenario.controller == "adjacent_vehicle":
+        return AdjacentVehicleController(scenario.controller_params)
     if scenario.controller == "lead_vehicle_braking":
         return LeadVehicleBrakingController(scenario.controller_params)
     if scenario.controller == "ptop_adversarial":

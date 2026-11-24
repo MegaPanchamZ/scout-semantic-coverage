@@ -36,6 +36,20 @@ class AgentConfig:
 @dataclass(slots=True)
 class SensorConfig:
     attach_collision_sensor: bool = True
+    attach_lane_invasion_sensor: bool = True
+
+
+@dataclass(slots=True)
+class OutcomeConfig:
+    enabled: bool = False
+    schema_version: int = 2
+    profile_path: Path | None = None
+    evidence_output_dir: Path | None = None
+    capture_road_context: bool = True
+    capture_task_context: bool = True
+    capture_route_progress: bool = True
+    completion_deadline_s: float | None = None
+    callback_drain_timeout_s: float = 0.05
 
 
 @dataclass(slots=True)
@@ -61,3 +75,4 @@ class AppConfig:
     sensors: SensorConfig = field(default_factory=SensorConfig)
     run: RunConfig = field(default_factory=RunConfig)
     result: ResultConfig = field(default_factory=ResultConfig)
+    outcomes: OutcomeConfig = field(default_factory=OutcomeConfig)

@@ -79,3 +79,18 @@ Metrics below are over the 29 search evaluations per run after excluding the sha
 | `causal` (Causal-Fuzzer-style) | 1.50 ± 1.89 | 3.0 | 196 | 1.50 | 3/6 | 0 |
 | `random` | 0.33 ± 0.47 | 7.5 | 545 | 0.33 | 2/6 | 0 |
 
+## Follow-up Outcome-Evaluation Protocol (`scout-outcomes-2.2-draft`)
+
+The Autoware RQ3 protocol and measured results above remain frozen under their original protocol and legacy evaluation schema (`schema_version=1`).
+
+Subsequent outcome-taxonomy evaluation and matched diagnostic pilots use the versioned schema-2 framework specified in:
+- [ADS outcome specification](ads-outcome-specification.md) (`scout-outcomes-2.2-draft`)
+- [Controlled detector validation suite](../experiments/outcome-validation/README.md) (`research/experiments/outcome-validation/cases.json`)
+- [Matched five-evaluation diagnostic pilot protocol](../experiments/EXP-020-policy-comparison/outcome-pilot/protocol.json)
+
+Key protocol additions relative to the historical RQ3 campaign:
+1. Multi-label independent assessments across `safety`, `behaviour`, `rules`, `task`, and `quality` with explicit `present / absent / unknown / not_applicable` states and no global `unsafe` aggregate.
+2. Explicit online feedback versioning (`feedback_version="legacy_v1"` vs `"v2_normalized"`) so evaluation fixes never silently alter search feedback within a campaign.
+3. Every attempted evaluation (including failed/unreadable attempts) is retained in the ledger and charged against the fixed per-arm budget; baseline eval 0 is excluded from policy discovery credit.
+4. No pilot comparison is admitted until the outcome profile is graduated from `draft` to `validated` via live CARLA control validation (`OutcomeProfile.require_pilot_ready()`).
+

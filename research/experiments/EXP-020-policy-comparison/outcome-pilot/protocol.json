@@ -1,0 +1,39 @@
+{
+  "protocol_id": "scout-outcome-pilot-v1",
+  "provenance": "native_carla_diagnostic_families_not_sctrans",
+  "budget_per_arm": {
+    "total_evaluations": 5,
+    "baseline_eval_index": 0,
+    "search_evaluations": 4,
+    "auto_extend": false,
+    "failed_attempts_consume_budget": true,
+    "credit_baseline_as_discovery": false
+  },
+  "shared_eval_zero_policy": "allow_if_identical_hashes",
+  "arms": ["random", "critonly", "semantic", "semantic_crit"],
+  "require_collision_free_baseline": true,
+  "required_channels": ["actors", "ego_motion", "collision", "acceleration", "controls"],
+  "interaction_families": [
+    {
+      "family_id": "pedestrian_crossing",
+      "spec": "../../outcome-validation/specs/town01_pedestrian_crossing.json",
+      "template": "pedestrian_crossing",
+      "intended_role": "pedestrian_subject",
+      "expected_predicates": ["crossing_path", "in_front_of"]
+    },
+    {
+      "family_id": "lead_vehicle_braking",
+      "spec": "../../outcome-validation/specs/town01_lead_vehicle_braking.json",
+      "template": "lead_vehicle_braking",
+      "intended_role": "lead_vehicle",
+      "expected_predicates": ["same_lane", "in_front_of"]
+    },
+    {
+      "family_id": "safe_interaction_control",
+      "spec": "../../outcome-validation/specs/town01_adjacent_vehicle.json",
+      "template": "adjacent_vehicle",
+      "intended_role": "adjacent_vehicle",
+      "expected_predicates": ["in_front_of"]
+    }
+  ]
+}

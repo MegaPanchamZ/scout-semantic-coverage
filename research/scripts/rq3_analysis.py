@@ -32,7 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from research.harness.safety_outcomes import classify_run  # noqa: E402
+from research.harness.legacy_outcomes import classify_run  # noqa: E402
 
 POLICIES = ("semantic_crit", "semantic", "critonly", "random", "lsa", "kmnc", "avfuzzer", "causal")
 POLICY_LABEL = {

@@ -39,11 +39,12 @@ WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
 
-from research.harness.safety_outcomes import (  # noqa: E402
+from research.harness.legacy_outcomes import (  # noqa: E402
     OUTCOME_NAMES,
     OutcomeThresholds,
     safety_schema,
 )
+from research.harness.safety_outcomes import safety_schema as safety_schema_v2  # noqa: E402
 from research.harness.safety_utility import (  # noqa: E402
     EvalRecord,
     load_records,
@@ -86,7 +87,62 @@ def build_utility_report(
     budget: int | None = None,
     association_source: str = "witnessed",
     top_n: int = 20,
+    schema_version: int = 1,
+    metric: str | None = None,
+    exclude_eval_zero: bool | None = None,
 ) -> dict[str, Any]:
+    if schema_version == 2:
+        eff_exclude = True if exclude_eval_zero is None else bool(exclude_eval_zero)
+        roots = expand_seed_roots(list(search_roots))
+        records, counters = load_records(
+            roots,
+            include_paired_controls=include_paired_controls,
+            schema_version=2,
+        )
+        selected_metric = metric or "safety_event"
+        arms = time_to_first(records, budget=budget, metric=selected_metric, exclude_eval_zero=eff_exclude)
+        policies = sorted({record.policy for record in records})
+        comparisons = [p for p in comparison_policies if p in policies and p != primary_policy]
+        witnessed = obligation_association(records, source="witnessed", metric=selected_metric)
+        targeted = obligation_association(records, source="target", metric=selected_metric) if association_source == "target" else None
+        return {
+            "schema_version": 2,
+            "config": {
+                "search_roots": [str(root) for root in roots],
+                "include_paired_controls": include_paired_controls,
+                "primary_policy": primary_policy,
+                "comparison_policies": list(comparison_policies),
+                "budget": budget,
+                "metric": selected_metric,
+                "exclude_eval_zero": eff_exclude,
+                "association_source": association_source,
+                "top_n": top_n,
+                "schema_version": 2,
+            },
+            "safety_schema": safety_schema_v2(),
+            "data_state": {
+                **counters,
+                "n_attempted": len(records),
+                "n_arms": len(arms),
+                "policies": policies,
+                "replicates": sorted({record.replicate for record in records}),
+            },
+            "time_to_first": {
+                "metric": selected_metric,
+                "summary": summarize_time_to_first(arms),
+                "by_replicate": summarize_time_to_first_by_replicate(arms),
+                "arms": [asdict(arm) for arm in arms],
+            },
+            "paired_time_to_first": [
+                paired_time_to_first(arms, primary_policy, comparison) for comparison in comparisons
+            ],
+            "association": {
+                "witnessed": witnessed,
+                "targeted": targeted,
+                "top_witnessed": rank_associations(witnessed, selected_metric, top_n),
+            },
+        }
+
     th = thresholds or OutcomeThresholds()
     roots = expand_seed_roots(list(search_roots))
     records, counters = load_records(
@@ -201,6 +257,63 @@ def _json_safe(value: Any) -> Any:
 
 
 def build_markdown(result: dict[str, Any]) -> str:
+    if result.get("schema_version") == 2:
+        config = result["config"]
+        state = result["data_state"]
+        metric = config.get("metric", "safety_event")
+        lines = [
+            "# Safety-utility evaluation (schema v2)",
+            "",
+            f"Metric: `{metric}` (eval 0 excluded from discovery credit: `{config.get('exclude_eval_zero', False)}`).",
+            "",
+            "## Data state",
+            "",
+            f"- Roots: {', '.join('`' + root + '`' for root in config['search_roots'])}",
+            f"- Attempted evaluations retained: {state['n_attempted']} (rows read: {state['n_rows']}, malformed: {state['n_malformed_rows']}, duplicates skipped: {state['n_duplicate_rows']}).",
+            f"- Missing run logs: {state['n_missing_run_path']}; unreadable: {state['n_unreadable_run']}; failed attempts: {state['n_failed_attempts']}.",
+            f"- Arms: {state['n_arms']}; policies: {', '.join(state['policies']) or 'none'}; replicates: {', '.join(state['replicates']) or 'none'}.",
+            "",
+            "## 1. Time to first discovery (missingness- and censoring-aware)",
+            "",
+            "| Policy | Arms | Found (with unknown prior) | Right-censored complete | Right-censored w/ unknown | Found rate | Mean first (found) | Median (found) | Mean first (imputed budget+1) |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+        for policy, entry in sorted(result["time_to_first"]["summary"].items()):
+            lines.append(
+                f"| {policy} | {entry['n_arms']} | {entry['n_found']} ({entry.get('n_found_with_unknown_prior', 0)}) | "
+                f"{entry.get('n_right_censored_complete', 0)} | {entry.get('n_right_censored_with_unknown', 0)} | "
+                f"{_fmt(entry['found_rate'])} | {_fmt(entry['mean_first_found'])} | "
+                f"{_fmt(entry['median_first_found'])} | {_fmt(entry.get('mean_first_imputed_budget_plus_one', entry['mean_first_censored']))} |"
+            )
+        lines.extend([
+            "",
+            "### Arm-level censoring and prior uncertainty",
+            "",
+            "| Policy | Replicate | Route | Attempted | Assessable | Unknown prior | First eval | Censoring reason |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        ])
+        for arm in result["time_to_first"]["arms"]:
+            lines.append(
+                f"| {arm['policy']} | {arm['replicate']} | {arm['route']} | {arm['n_attempted']} | "
+                f"{arm['n_assessable']} | {arm['n_unknown_prior']} | {_fmt(arm['first_eval'], 0)} | {arm['censoring_reason']} |"
+            )
+        lines.extend([
+            "",
+            "## 2. Obligation association (assessable denominators; observational, not causal)",
+            "",
+            "| Obligation | Support | Present hits / assessable (unknown) | Present rate | Absent rate | Lift |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ])
+        source = config["association_source"]
+        assoc = result["association"]["targeted"] if source == "target" else result["association"]["witnessed"]
+        for ob, entry in sorted((assoc or {}).get("obligations", {}).items()):
+            lines.append(
+                f"| {ob} | {entry['support']} | {entry['present_hits']}/{entry['present_assessable']} ({entry['present_unknown']}) | "
+                f"{_fmt(entry['present_rate'])} | {_fmt(entry['absent_rate'])} | {_fmt(entry['lift_primary'])} |"
+            )
+        lines.append("")
+        return "\n".join(lines)
+
     config = result["config"]
     state = result["data_state"]
     primary = config["primary_policy"]
@@ -414,6 +527,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--near-collision-ttc-s", type=float, default=1.5)
     parser.add_argument("--lane-offset-m", type=float, default=2.0)
     parser.add_argument("--harsh-deceleration-mps2", type=float, default=3.0)
+    parser.add_argument("--outcome-schema", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--metric", default=None, help="Schema-2 metric or aggregate name (default: safety_event).")
+    parser.add_argument(
+        "--exclude-eval-zero",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Exclude baseline eval 0 from discovery credit (defaults to True for schema 2, False for schema 1).",
+    )
     return parser
 
 
@@ -440,16 +561,28 @@ def main(argv: list[str] | None = None) -> int:
         budget=args.budget,
         association_source=args.association_source,
         top_n=args.top_n,
+        schema_version=args.outcome_schema,
+        metric=args.metric,
+        exclude_eval_zero=args.exclude_eval_zero,
     )
     paths = write_report(result, out_dir)
     state = result["data_state"]
-    print(
-        "safety utility report: scored {scored} runs; arms {arms}; policies {policies}".format(
-            scored=state["n_scored"],
-            arms=state["n_arms"],
-            policies=", ".join(state["policies"]) or "none",
+    if result.get("schema_version") == 2:
+        print(
+            "safety utility report v2: attempted {att} runs; arms {arms}; policies {policies}".format(
+                att=state["n_attempted"],
+                arms=state["n_arms"],
+                policies=", ".join(state["policies"]) or "none",
+            )
         )
-    )
+    else:
+        print(
+            "safety utility report: scored {scored} runs; arms {arms}; policies {policies}".format(
+                scored=state["n_scored"],
+                arms=state["n_arms"],
+                policies=", ".join(state["policies"]) or "none",
+            )
+        )
     for label, path in paths.items():
         print(f"wrote {path} [{label}]")
     return 0

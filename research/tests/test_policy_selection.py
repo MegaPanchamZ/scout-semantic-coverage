@@ -815,3 +815,46 @@ def test_identify_instantiable_templates_and_trainval_denominators():
     assert estate._mapped_counts == {"V": 7, "A": 38, "E": 32, "H": 9}
     assert estate._total_counts == {"V": 8, "A": 51, "E": 35, "H": 9}
 
+
+def test_v2_normalized_feedback_handles_none_criticality_without_crashing(space):
+    from baselines import critical_pairs, make_policy_state
+
+    # Row with unavailable v2 feedback (no outcome_v2 -> criticality is None)
+    unavail_row = {
+        "criticality": None,
+        "engine_run_obligations": ["ob1"],
+        "min_gap_m": 1.0,  # legacy field must be ignored in v2_normalized mode!
+    }
+    assert policy_search._semantic_fitness(unavail_row, "critonly", feedback_version="v2_normalized") is None
+    assert policy_search._semantic_tiebreak(unavail_row, "critonly", feedback_version="v2_normalized") is None
+    assert critical_pairs(unavail_row, feedback_version="v2_normalized") == set()
+
+    # SemanticCritState and CausalFuzzerStyleState must ignore unavailable v2 rows without crashing or fabricating bins
+    sc = make_policy_state("semantic_crit", space, policy_search.PolicyState, feedback_version="v2_normalized")
+    sc.observe({"trigger_radius_m": 15.0}, None, row=unavail_row)
+    assert sc.best_values is None
+
+    causal = make_policy_state("causal", space, policy_search.PolicyState, feedback_version="v2_normalized")
+    causal.observe({"trigger_radius_m": 15.0}, 1.0, row=unavail_row)
+    assert causal.archive == []
+
+    # Causal feedback must NOT learn 'safe' from a v2 row with proximity gap but collision='unknown'!
+    unknown_col_row = {
+        "outcome_v2": {
+            "schema_version": 2,
+            "execution_status": "partial",
+            "categories": {"safety": {"collision": {"status": "unknown"}}},
+            "events": [{"label": "close_proximity", "measurements": {"min_gap_m": 1.2}}],
+        }
+    }
+    causal.observe({"trigger_radius_m": 15.0}, -1.2, row=unknown_col_row)
+    assert causal.archive == []
+
+    # _target_progress with use_criticality=True and None criticality must return (cov, None), not raise TypeError
+    from types import SimpleNamespace
+    oracle = SimpleNamespace(
+        obligations=[SimpleNamespace(signature="ob1", predicate="p1", required_predicates=(), node_types=("pedestrian",), dimension="hazard_class")]
+    )
+    cov, tie = policy_search._target_progress(oracle, "ob1", unavail_row, use_criticality=True, feedback_version="v2_normalized")
+    assert cov == 1.0 and tie is None
+

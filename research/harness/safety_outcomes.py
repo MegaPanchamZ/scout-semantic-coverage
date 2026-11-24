@@ -1,206 +1,148 @@
-"""Named safety outcomes derived from recorded simulator logs.
-
-The paper's utility question must not rest on collision alone.  This module
-turns a single run log (the JSON written by :class:`~research.harness.runner.HarnessRunner`,
-including its ``safety_metrics`` and aggregate telemetry) into a fixed set of
-named *outcomes*:
-
-===========================  =================================================
-outcome                      evidence
-===========================  =================================================
-``collision``                collision sensor contact (existing ground truth)
-``near_collision``           near-collision band entry or low time-to-collision
-``unsafe_proximity``         pedestrian/vehicle gap below a safety threshold
-``red_light_violation``      ego crosses a red light above a speed threshold
-``lane_departure``           lane-centre offset above a threshold while moving
-``traffic_rule_violation``   ``red_light_violation`` or ``lane_departure``
-``stuck``                    stationary streak past a time threshold
-``no_progress``              episode ended short with negligible route progress
-``route_incomplete``         goal not reached within the tick budget
-``harsh_braking``            longitudinal deceleration above a threshold
-``emergency_manoeuvre``      very hard deceleration or hard brake plus hard steer
-===========================  =================================================
-
-``unsafe`` is the disjunction of all of the above.  The thresholds are
-engineering proxies, not validated labels; keep them in one place so a campaign
-can report sensitivity to them.  Legacy run logs without schema-2
-``safety_metrics`` classify to ``False`` for the new outcomes rather than
-guessing, and the raw evidence is carried through for inspection.
-"""
-
+"""Schema-2 assessments. Historical boolean/proxy semantics live in legacy_outcomes."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from typing import Any
+from dataclasses import asdict, replace
+from typing import Iterable
 
-
-SAFETY_OUTCOME_SCHEMA_VERSION = 1
-
-OUTCOME_NAMES: tuple[str, ...] = (
-    "collision",
-    "near_collision",
-    "unsafe_proximity",
-    "red_light_violation",
-    "lane_departure",
-    "traffic_rule_violation",
-    "stuck",
-    "no_progress",
-    "route_incomplete",
-    "harsh_braking",
-    "emergency_manoeuvre",
+from research.harness.outcome_config import OutcomeProfile, implementation_digest, load_outcome_profile, profile_digest
+from research.harness.outcome_models import (
+    CATEGORIES, DEFINITION_VERSION, AssessmentStatus as Status, CaptureManifest,
+    FrameEvidence, MetricAssessment, RunOutcome, SensorEvidence,
+    assessment_is_present, unknown_categories,
 )
 
-
-@dataclass(slots=True)
-class OutcomeThresholds:
-    """Classification thresholds (overridable per campaign)."""
-
-    near_collision_ttc_s: float = 1.5
-    near_collision_distance_m: float = 2.5
-    unsafe_pedestrian_distance_m: float = 2.0
-    unsafe_vehicle_distance_m: float = 2.5
-    lane_offset_m: float = 2.0
-    stationary_speed_mps: float = 0.1
-    stuck_seconds: float = 8.0
-    harsh_deceleration_mps2: float = 3.0
-    emergency_deceleration_mps2: float = 6.0
-    tick_seconds: float = 0.1
-    no_progress_distance_m: float = 5.0
-    no_progress_min_ticks: int = 100
+SAFETY_OUTCOME_SCHEMA_VERSION = 2
+OUTCOME_NAMES = tuple(name for names in CATEGORIES.values() for name in names)
 
 
-def _number(value: Any) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    result = float(value)
+class OutcomeEvaluator:
+    """Normalized-evidence evaluator shared by live capture and offline replay.
+
+    Frames arrive in strictly increasing frame/time order. Sensor callbacks may
+    arrive out of order before finish() and are reconciled deterministically.
+    """
+
+    def __init__(self, profile: OutcomeProfile | None = None):
+        self.profile = profile or load_outcome_profile()
+        self.frames: list[FrameEvidence] = []
+        self.sensors: list[SensorEvidence] = []
+        self.run_id: str | None = None
+
+    def _identity(self, run_id):
+        if self.run_id is not None and self.run_id != run_id:
+            raise ValueError("Cannot mix runs in one evaluator")
+        self.run_id = run_id
+
+    def observe(self, frame: FrameEvidence) -> None:
+        self._identity(frame.run_id)
+        if self.frames and (frame.sim_frame <= self.frames[-1].sim_frame or
+                            frame.sim_time_s <= self.frames[-1].sim_time_s):
+            raise ValueError("Frame/time order must be strictly increasing")
+        self.frames.append(frame)
+
+    def record_sensor_event(self, event: SensorEvidence) -> None:
+        self._identity(event.run_id)
+        if event.callback_id is not None:
+            for old in self.sensors:
+                if old.callback_id == event.callback_id and old.channel == event.channel:
+                    if old != event:
+                        raise ValueError("Conflicting duplicate callback ID")
+                    return
+        self.sensors.append(event)
+
+    def finish(self, manifest: CaptureManifest) -> RunOutcome:
+        from research.harness.outcome_detectors import evaluate_evidence
+        self._identity(manifest.run_id)
+        frames = []
+        phase_break = False
+        for f in self.frames:
+            if f.phase != "evaluation":
+                phase_break = bool(frames)
+            else:
+                frames.append(replace(f, discontinuity=True) if phase_break else f)
+                phase_break = False
+        sensors = sorted((s for s in self.sensors if s.phase == "evaluation"),
+                         key=lambda s: (s.sim_time_s, s.sim_frame, s.actor_id, s.callback_id or ""))
+        for record in (*frames, *sensors):
+            if not manifest.start_s <= record.sim_time_s <= manifest.end_s:
+                raise ValueError("Evaluation evidence lies outside capture interval")
+        if (frames or sensors) and manifest.execution_status in {"dry_run", "not_executed"}:
+            raise ValueError("Non-executed run cannot contain evaluation evidence")
+        return evaluate_evidence(frames, sensors, manifest, self.profile)
+
+
+def adapt_legacy_evidence(payload: dict, profile: OutcomeProfile | None = None) -> RunOutcome:
+    """Keep old proxy counters as unavailable for v2; preserve explicit contact evidence."""
+    profile = profile or load_outcome_profile()
+    ticks = payload.get("ticks_executed")
+    executed = isinstance(ticks, int) and not isinstance(ticks, bool) and ticks > 0
+    error = payload.get("run_error") or payload.get("succeeded") is False
+    status = "dry_run" if payload.get("dry_run") else ("partial" if executed and error else
+             "failed" if error else "completed" if executed else
+             "not_executed" if isinstance(ticks, int) and not isinstance(ticks, bool) and ticks == 0 else "unknown")
+    result = RunOutcome(str(payload.get("run_id") or payload.get("scenario_id") or "legacy-unidentified"),
+                        status, "legacy_unspecified", profile_digest(profile),
+                        unknown_categories("legacy_evidence_insufficient"),
+                        provenance={"source_schema": "legacy", "profile_status": profile.status,
+                                    "implementation_digest": implementation_digest()})
+    records = payload.get("collisions")
+    valid_contacts = isinstance(records, list) and any(
+        isinstance(c, dict) and isinstance(c.get("frame"), int) and not isinstance(c.get("frame"), bool)
+        and c["frame"] >= 0 and c.get("actor_id") is not None and isinstance(c.get("actor_type"), str)
+        and (c.get("phase") is None or c.get("phase") == "evaluation")
+        for c in records)
+    if status != "dry_run" and valid_contacts:
+        all_explicit_eval = all(
+            c.get("phase") == "evaluation"
+            for c in records
+            if isinstance(c, dict) and isinstance(c.get("frame"), int) and not isinstance(c.get("frame"), bool)
+            and c["frame"] >= 0 and c.get("actor_id") is not None and isinstance(c.get("actor_type"), str)
+            and (c.get("phase") is None or c.get("phase") == "evaluation")
+        )
+        reason = "explicit_legacy_evaluation_collision_record" if all_explicit_eval else "explicit_legacy_collision_record_phase_unresolved"
+        result.categories["safety"]["collision"] = MetricAssessment(Status.PRESENT, reasons=(reason,))
+    goal = payload.get("reached_goal")
+    if executed and status != "dry_run" and isinstance(goal, bool):
+        result.categories["task"]["route_incomplete"] = MetricAssessment(
+            Status.ABSENT if goal else Status.PRESENT, reasons=("explicit_legacy_goal_state",))
+    metrics = payload.get("safety_metrics")
+    result.provenance["ignored_proxy_fields"] = sorted(metrics) if isinstance(metrics, dict) else []
     return result
 
 
-def _integer(value: Any) -> int | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float) and float(value).is_integer():
-        return int(value)
-    return None
+def classify_run(run_payload: dict, profile: OutcomeProfile | None = None, *,
+                 evidence: Iterable[FrameEvidence | SensorEvidence] | None = None, schema_version: int = 2) -> dict:
+    if schema_version == 1:
+        if evidence is not None or profile is not None:
+            raise ValueError("Schema 1 uses legacy_outcomes.classify_run for custom thresholds")
+        from research.harness.legacy_outcomes import classify_run as legacy
+        return legacy(run_payload)
+    if schema_version != 2:
+        raise ValueError("Unsupported outcome schema")
+    if evidence is None:
+        if "capture_manifest" in run_payload:
+            raise ValueError("Normalized capture requires an explicit evidence iterable (possibly empty)")
+        return adapt_legacy_evidence(run_payload, profile).to_dict()
+    evaluator = OutcomeEvaluator(profile)
+    for record in evidence:
+        if isinstance(record, FrameEvidence):
+            evaluator.observe(record)
+        elif isinstance(record, SensorEvidence):
+            evaluator.record_sensor_event(record)
+        else:
+            raise TypeError("Expected normalized FrameEvidence or SensorEvidence")
+    return evaluator.finish(CaptureManifest.from_dict(run_payload["capture_manifest"])).to_dict()
 
 
-def classify_run(
-    run_payload: dict[str, Any],
-    thresholds: OutcomeThresholds | None = None,
-) -> dict[str, Any]:
-    """Classify one run log payload into named unsafe behaviours."""
-    th = thresholds or OutcomeThresholds()
-    metrics = run_payload.get("safety_metrics") or {}
-    metadata = run_payload.get("metadata") or {}
-    telemetry = metadata.get("telemetry") or {}
-
-    reached_goal = bool(run_payload.get("reached_goal"))
-    ticks_executed = _integer(run_payload.get("ticks_executed"))
-    # A run that crashed or never stepped the simulator carries no driving
-    # evidence: report it as invalid rather than as an incomplete/unsafe run.
-    valid = not str(run_payload.get("run_error") or "").strip() and (
-        "ticks_executed" not in run_payload or bool(ticks_executed)
-    )
-    if not valid:
-        return {
-            "schema_version": SAFETY_OUTCOME_SCHEMA_VERSION,
-            "valid": False,
-            **{name: False for name in OUTCOME_NAMES},
-            "unsafe": False,
-            "reasons": [],
-            "raw": {"ticks_executed": ticks_executed},
-        }
-    collision_count = _integer(run_payload.get("collision_count")) or 0
-    terminated_by_collision = bool(run_payload.get("terminated_by_collision"))
-
-    min_ttc = _number(metrics.get("min_ttc"))
-    min_pedestrian = _number(metrics.get("min_pedestrian_distance_m"))
-    min_vehicle = _number(metrics.get("min_vehicle_distance_m"))
-    max_lane_offset = _number(metrics.get("max_lane_offset_m"))
-    max_deceleration = _number(metrics.get("max_deceleration_mps2"))
-    stationary_ticks = _integer(metrics.get("max_stationary_streak_ticks")) or 0
-    near_collision_events = _integer(metrics.get("near_collisions")) or 0
-    red_light_violations = _integer(metrics.get("red_light_violations")) or 0
-    lane_departure_events = _integer(metrics.get("lane_departure_events")) or 0
-    harsh_braking_events = _integer(metrics.get("harsh_braking_events")) or 0
-    emergency_events = _integer(metrics.get("emergency_manoeuvre_events")) or 0
-
-    route_progress = telemetry.get("route_progress")
-    if max_lane_offset is None and isinstance(route_progress, dict):
-        max_lane_offset = _number(route_progress.get("max_cross_track_error_m"))
-    progress_to_goal = _number(telemetry.get("progress_to_goal_m"))
-
-    stationary_seconds = stationary_ticks * th.tick_seconds
-
-    collision = collision_count > 0 or terminated_by_collision
-    near_collision = near_collision_events > 0 or (
-        min_ttc is not None and min_ttc < th.near_collision_ttc_s
-    )
-    unsafe_proximity = (
-        (min_pedestrian is not None and min_pedestrian < th.unsafe_pedestrian_distance_m)
-        or (min_vehicle is not None and min_vehicle < th.unsafe_vehicle_distance_m)
-    )
-    red_light_violation = red_light_violations > 0
-    lane_departure = lane_departure_events > 0 or (
-        max_lane_offset is not None and max_lane_offset > th.lane_offset_m
-    )
-    traffic_rule_violation = red_light_violation or lane_departure
-    stuck = stationary_seconds >= th.stuck_seconds
-    route_incomplete = not reached_goal
-    no_progress = (
-        route_incomplete
-        and ticks_executed is not None
-        and ticks_executed >= th.no_progress_min_ticks
-        and progress_to_goal is not None
-        and progress_to_goal < th.no_progress_distance_m
-    )
-    harsh_braking = harsh_braking_events > 0 or (
-        max_deceleration is not None and max_deceleration >= th.harsh_deceleration_mps2
-    )
-    emergency_manoeuvre = emergency_events > 0 or (
-        max_deceleration is not None and max_deceleration >= th.emergency_deceleration_mps2
-    )
-
-    outcomes = {
-        "collision": collision,
-        "near_collision": near_collision,
-        "unsafe_proximity": unsafe_proximity,
-        "red_light_violation": red_light_violation,
-        "lane_departure": lane_departure,
-        "traffic_rule_violation": traffic_rule_violation,
-        "stuck": stuck,
-        "no_progress": no_progress,
-        "route_incomplete": route_incomplete,
-        "harsh_braking": harsh_braking,
-        "emergency_manoeuvre": emergency_manoeuvre,
-    }
-    reasons = [name for name in OUTCOME_NAMES if outcomes[name]]
-
-    return {
-        "schema_version": SAFETY_OUTCOME_SCHEMA_VERSION,
-        "valid": True,
-        **outcomes,
-        "unsafe": bool(reasons),
-        "reasons": reasons,
-        "raw": {
-            "min_ttc_s": min_ttc,
-            "min_pedestrian_distance_m": min_pedestrian,
-            "min_vehicle_distance_m": min_vehicle,
-            "max_lane_offset_m": max_lane_offset,
-            "max_deceleration_mps2": max_deceleration,
-            "max_stationary_streak_s": stationary_seconds,
-            "progress_to_goal_m": progress_to_goal,
-            "ticks_executed": ticks_executed,
-        },
-    }
-
-
-def safety_schema() -> dict[str, Any]:
-    """Machine-readable description of the outcomes and their thresholds."""
-    return {
-        "schema_version": SAFETY_OUTCOME_SCHEMA_VERSION,
-        "outcomes": list(OUTCOME_NAMES),
-        "thresholds": asdict(OutcomeThresholds()),
-    }
+def safety_schema(profile: OutcomeProfile | None = None, *, schema_version: int = 2) -> dict:
+    if schema_version == 1:
+        if profile is not None:
+            raise ValueError("Schema 1 uses legacy_outcomes.safety_schema for custom thresholds")
+        from research.harness.legacy_outcomes import safety_schema as legacy_schema
+        return legacy_schema()
+    if schema_version != 2:
+        raise ValueError("Unsupported outcome schema")
+    profile = profile or load_outcome_profile()
+    return {"schema_version": 2, "definition_version": DEFINITION_VERSION,
+            "categories": CATEGORIES, "assessment_states": [s.value for s in Status],
+            "profile": asdict(profile), "profile_digest": profile_digest(profile)}

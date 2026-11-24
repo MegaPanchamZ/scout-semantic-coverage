@@ -1,0 +1,40 @@
+{
+  "scenario_id": "val_town01_spawn_failure",
+  "town": "Town01",
+  "weather_preset": "ClearNoon",
+  "ego_spawn_index": 0,
+  "goal_spawn_index": 82,
+  "description": "Native CARLA Town01 deliberate actor-spawn-failure control (invalid_scenario positive control; not SCTrans).",
+  "max_ticks": 100,
+  "npc_vehicle_count": 0,
+  "walker_count": 0,
+  "controller": "threshold_crossing_adversary",
+  "controller_params": {
+    "adversary_kind": "walker",
+    "blueprint_filter": "walker.pedestrian.nonexistent_spawn_failure_control",
+    "speed": 1.8,
+    "trigger_radius_m": 15.0,
+    "trigger_location": {
+      "x": 334.71923828125,
+      "y": 295.0,
+      "z": 0.0
+    },
+    "spawn_transform": {
+      "location": {
+        "x": 331.0,
+        "y": 298.0,
+        "z": 0.8
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": 0.0,
+        "roll": 0.0
+      }
+    },
+    "destination_location": {
+      "x": 338.5,
+      "y": 298.0,
+      "z": 0.8
+    }
+  }
+}

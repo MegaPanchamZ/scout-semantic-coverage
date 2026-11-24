@@ -12,6 +12,17 @@ exploitation, adaptive mutation; see `research/GAP_DRIVEN_SEARCH.md`).
 The implementation currently provides two generation templates: pedestrian
 crossing and lead-vehicle braking, with separate parameter spaces.
 
+The schema-v2 ADS outcome evaluation framework separates raw simulator capture
+(`research/harness/outcome_io.py`, `outcome_models.py`, `outcome_config.py`),
+deterministic offline detectors (`outcome_detectors.py`, `traffic_rule_outcomes.py`,
+`task_outcomes.py`, `scenario_quality.py`, `outcome_diversity.py`, `outcome_linkage.py`),
+and auditable v2 reports (`research/scripts/safety_outcome_report.py`,
+`safety_utility_report.py`, `outcome_sensitivity_report.py`,
+`outcome_diversity_report.py`, `guidance_diagnostics_report.py`,
+`reclassify_outcomes.py`). See [the ADS outcome specification](research/docs/ads-outcome-specification.md),
+the 18-case validation harness (`research/experiments/outcome-validation/run_validation.py`),
+and the matched pilot runner (`research/experiments/EXP-020-policy-comparison/outcome-pilot/run_pilot.py`).
+
 Read [the reproduction guide](research/REPRODUCING_SCOUT.md) for setup,
 external simulator/model prerequisites (with the patches to the third-party
 agents in `research/patches/`), nominal-profile calibration, the CARLA fleet,
@@ -20,6 +31,7 @@ the RQ3 InterFuser and Autoware Universe campaigns, matched controls and remaini
 ```bash
 uv sync --directory research --python 3.10 --group dev
 research/.venv/bin/python -m pytest research/tests -q
+research/.venv/bin/python research/experiments/outcome-validation/run_validation.py --mode offline-synthetic --output-dir /tmp/scout-outcome-val
 research/.venv/bin/python research/harness/run_shakedown.py --help
 research/.venv/bin/python scripts/rq3/rq3_aggregate.py results/autoware/rq3
 ```

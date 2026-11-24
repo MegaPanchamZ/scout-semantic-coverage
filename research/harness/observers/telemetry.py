@@ -121,17 +121,31 @@ class TelemetryObserver:
             if route_progress.get("remaining_waypoints") is not None
         ]
         progress_to_goal = distance_samples[0] - distance_samples[-1] if len(distance_samples) >= 2 else None
+        sim_times = [
+            float(sample["sim_time_s"])
+            for sample in self._trace
+            if isinstance(sample.get("sim_time_s"), (int, float))
+        ]
+        arc_high_waters = [
+            float(sample["route_arc_progress"]["high_water_m"])
+            for sample in self._trace
+            if isinstance(sample.get("route_arc_progress"), dict)
+            and sample["route_arc_progress"].get("high_water_m") is not None
+        ]
+        observed_duration_s = (sim_times[-1] - sim_times[0]) if len(sim_times) >= 2 else None
 
         result.metadata["telemetry"] = {
             "status": self._status,
             "trace_count": len(self._trace),
             "sample_every_ticks": self.config.sample_every_ticks,
+            "observed_sim_duration_s": observed_duration_s,
             "max_speed_mps": max(speed_samples) if speed_samples else None,
             "max_speed_kph": (max(speed_samples) * 3.6) if speed_samples else None,
             "final_speed_mps": speed_samples[-1] if speed_samples else None,
             "final_distance_to_goal_m": distance_samples[-1] if distance_samples else None,
             "min_distance_to_goal_m": min(distance_samples) if distance_samples else None,
             "progress_to_goal_m": progress_to_goal,
+            "route_arc_high_water_m": max(arc_high_waters) if arc_high_waters else None,
             "throttle_active_ticks": sum(1 for value in throttle_samples if value > 0.05),
             "full_brake_ticks": sum(1 for value in brake_samples if value >= 0.95),
             "conflicting_control_ticks": conflicting_control_ticks,

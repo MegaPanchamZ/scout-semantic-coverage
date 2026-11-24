@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
+from pathlib import Path
+import sys
 from typing import Any
 
 from research.harness.config import AgentConfig
@@ -91,10 +94,29 @@ def make_agent(world: Any, ego_vehicle: Any, agent_config: AgentConfig, client: 
             raise ValueError("PCLA agents require --pcla-agent.")
         return PclaAdapter(world, ego_vehicle, client, agent_config.repo_path, agent_config.pcla_agent_name)
 
+    if agent_config.kind == "scripted":
+        scripted_path = Path(__file__).resolve().parents[1] / "experiments" / "outcome-validation" / "scripted_cases.py"
+        mod_name = "scout_scripted_cases"
+        mod = sys.modules.get(mod_name)
+        if mod is None:
+            spec = importlib.util.spec_from_file_location(mod_name, scripted_path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Cannot load scripted validation module from {scripted_path}")
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[mod_name] = mod
+            try:
+                spec.loader.exec_module(mod)
+            except Exception:
+                sys.modules.pop(mod_name, None)
+                raise
+        case_id = str(agent_config.init_kwargs.get("case_id", "default"))
+        controller = mod.build_case_controller(case_id)
+        return mod.ScriptedEgoAgent(world, ego_vehicle, controller)
+
     if agent_config.kind in {"external-module", "tcp", "interfuser", "transfuser"}:
         return _load_external_agent(agent_config, world, ego_vehicle)
 
     raise NotImplementedError(
         f"Agent kind '{agent_config.kind}' is not implemented yet. "
-        "Supported adapters: behavior, leaderboard-module, pcla, external-module, tcp, interfuser, transfuser."
+        "Supported adapters: behavior, leaderboard-module, pcla, scripted, external-module, tcp, interfuser, transfuser."
     )

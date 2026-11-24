@@ -1,0 +1,176 @@
+{
+  "suite_id": "scout-outcome-validation-v1",
+  "provenance": "native_carla_diagnostic_cases_not_sctrans",
+  "cases": [
+    {
+      "case_id": "collision_positive_contact",
+      "family": "collision",
+      "control_kind": "positive",
+      "spec": "specs/town01_pedestrian_crossing.json",
+      "intended_roles": ["ego", "pedestrian_subject"],
+      "expected": {"safety.collision": "present"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "collision_negative_close_pass",
+      "family": "collision",
+      "control_kind": "negative",
+      "spec": "specs/town01_pedestrian_crossing.json",
+      "intended_roles": ["ego", "pedestrian_subject"],
+      "expected": {"safety.collision": "absent", "behaviour.close_proximity": "present"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "collision_uncertainty_disabled_sensor",
+      "family": "collision",
+      "control_kind": "uncertainty",
+      "spec": "specs/town01_pedestrian_crossing.json",
+      "intended_roles": ["ego"],
+      "expected": {"safety.collision": "unknown"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "near_miss_positive_resolved_conflict",
+      "family": "near_miss",
+      "control_kind": "positive",
+      "spec": "specs/town01_lead_vehicle_braking.json",
+      "intended_roles": ["ego", "lead_vehicle"],
+      "expected": {"safety.near_miss": "present", "safety.collision": "absent"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "near_miss_negative_parallel_adjacent",
+      "family": "near_miss",
+      "control_kind": "negative",
+      "spec": "specs/town01_adjacent_vehicle.json",
+      "intended_roles": ["ego", "adjacent_vehicle"],
+      "expected": {"safety.near_miss": "absent", "behaviour.close_proximity": "present"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "lane_positive_prohibited_solid_crossing",
+      "family": "lane",
+      "control_kind": "positive",
+      "spec": "specs/town01_lane_interaction.json",
+      "intended_roles": ["ego"],
+      "expected": {"behaviour.lane_crossing": "present", "rules.illegal_lane_change": "present"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "lane_negative_permitted_broken_change",
+      "family": "lane",
+      "control_kind": "negative",
+      "spec": "specs/town01_lane_interaction.json",
+      "intended_roles": ["ego"],
+      "expected": {"behaviour.lane_crossing": "present", "rules.illegal_lane_change": "absent"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "braking_positive_hazard_associated",
+      "family": "braking",
+      "control_kind": "positive",
+      "spec": "specs/town01_lead_vehicle_braking.json",
+      "intended_roles": ["ego", "lead_vehicle"],
+      "expected": {"behaviour.hard_braking": "present", "safety.hazard_associated_braking": "present"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "braking_negative_low_speed_and_no_hazard",
+      "family": "braking",
+      "control_kind": "negative",
+      "spec": "specs/town01_clear_baseline.json",
+      "intended_roles": ["ego"],
+      "expected": {"behaviour.hard_braking": "absent", "safety.hazard_associated_braking": "absent"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "red_light_positive_crossing",
+      "family": "red_light",
+      "control_kind": "positive",
+      "spec": "specs/town01_clear_baseline.json",
+      "intended_roles": ["ego"],
+      "expected": {"rules.red_light_violation": "present"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "red_light_negative_approach_stop",
+      "family": "red_light",
+      "control_kind": "negative",
+      "spec": "specs/town01_clear_baseline.json",
+      "intended_roles": ["ego"],
+      "expected": {"rules.red_light_violation": "absent"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "other_rules_positive_stop_sign_speeding_wrong_way",
+      "family": "other_rules",
+      "control_kind": "positive",
+      "spec": "specs/town01_clear_baseline.json",
+      "intended_roles": ["ego"],
+      "expected": {
+        "rules.stop_sign_violation": "present",
+        "rules.speeding": "present",
+        "rules.wrong_way": "present"
+      },
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "other_rules_negative_compliant_and_reverse",
+      "family": "other_rules",
+      "control_kind": "negative",
+      "spec": "specs/town01_clear_baseline.json",
+      "intended_roles": ["ego"],
+      "expected": {
+        "rules.stop_sign_violation": "absent",
+        "rules.speeding": "absent",
+        "rules.wrong_way": "absent"
+      },
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "task_positive_free_route_stuck",
+      "family": "task",
+      "control_kind": "positive",
+      "spec": "specs/town01_clear_baseline.json",
+      "intended_roles": ["ego"],
+      "expected": {"task.prolonged_immobilization": "present", "task.stuck": "present", "task.no_progress": "present"},
+      "required_duration_s": 10.0
+    },
+    {
+      "case_id": "task_negative_legitimate_red_light_wait",
+      "family": "task",
+      "control_kind": "negative",
+      "spec": "specs/town01_clear_baseline.json",
+      "intended_roles": ["ego"],
+      "expected": {"task.prolonged_immobilization": "present", "task.stuck": "absent", "task.no_progress": "absent"},
+      "required_duration_s": 10.0
+    },
+    {
+      "case_id": "quality_positive_low_interaction",
+      "family": "quality",
+      "control_kind": "positive",
+      "spec": "specs/town01_clear_baseline.json",
+      "intended_roles": ["ego"],
+      "expected": {"quality.invalid_scenario": "absent", "quality.low_interaction": "present"},
+      "required_duration_s": 10.0
+    },
+    {
+      "case_id": "quality_positive_spawn_failure",
+      "family": "quality",
+      "control_kind": "positive",
+      "spec": "specs/town01_spawn_failure.json",
+      "intended_roles": ["ego"],
+      "expected": {"quality.invalid_scenario": "present"},
+      "required_duration_s": 2.0
+    },
+    {
+      "case_id": "quality_negative_safe_meaningful_interaction",
+      "family": "quality",
+      "control_kind": "negative",
+      "spec": "specs/town01_adjacent_vehicle.json",
+      "intended_roles": ["ego", "adjacent_vehicle"],
+      "expected": {"quality.invalid_scenario": "absent", "quality.low_interaction": "absent"},
+      "required_duration_s": 10.0
+    }
+  ]
+}

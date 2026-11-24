@@ -54,6 +54,7 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 
 
 POC_DIR = Path(__file__).resolve().parent
@@ -79,7 +80,7 @@ from research.harness.hazard_search import (  # noqa: E402
     ObligationScheduler,
     identify_instantiable_templates,
 )
-from research.harness.safety_outcomes import classify_run  # noqa: E402
+from research.harness.legacy_outcomes import classify_run  # noqa: E402
 from research.harness.shared_suite import SharedSuiteStore  # noqa: E402
 from research.harness.search_space import (  # noqa: E402
     SearchCandidate,
@@ -133,10 +134,74 @@ def _validate_protocol(args: argparse.Namespace, rows_path: Path, hazard_payload
         protocol["exploit"] = [args.hazard_exploit_patience, args.hazard_exploit_cap]
     if getattr(args, "shared_suite", False):
         protocol["shared_suite"] = True
+    outcome_schema = getattr(args, "outcome_schema", 1)
+    feedback_version = getattr(args, "feedback_version", "legacy_v1")
+    outcome_profile = getattr(args, "outcome_profile", None)
+    if outcome_schema != 1 or feedback_version != "legacy_v1" or outcome_profile is not None:
+        resolved_profile = outcome_profile
+        if resolved_profile is None and int(outcome_schema) == 2:
+            from research.harness.outcome_config import DEFAULT_PROFILE
+            resolved_profile = DEFAULT_PROFILE
+        protocol["outcome_schema"] = int(outcome_schema)
+        protocol["feedback_version"] = str(feedback_version)
+        protocol["outcome_profile_digest"] = digest(resolved_profile)
+    replicate_id = getattr(args, "replicate_id", None)
+    if replicate_id is not None:
+        protocol["replicate_id"] = str(replicate_id)
     path = args.output_dir / "campaign_protocol.json"
     if rows_path.exists() and rows_path.stat().st_size:
         if not path.exists() or _load_json(path) != protocol:
             raise ValueError("Incompatible campaign checkpoint. Use a new --output-dir; archived results must not be resumed with the corrected protocol.")
+        if int(outcome_schema) == 2:
+            raw_bytes = rows_path.read_bytes()
+            try:
+                raw_text = raw_bytes.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError(
+                    "Incompatible schema-2 campaign checkpoint: rows.jsonl is not valid UTF-8. "
+                    "Use a new --output-dir."
+                ) from exc
+            for raw_line in raw_text.split("\n"):
+                line = raw_line.rstrip("\r")
+                if not line.strip(" \t\r"):
+                    continue
+                def _parse_finite_float_token(tok: str) -> float:
+                    val = float(tok)
+                    if not math.isfinite(val):
+                        raise ValueError(f"Non-finite JSON float literal: {tok}")
+                    return val
+
+                try:
+                    existing_row = json.loads(
+                        line,
+                        parse_constant=lambda tok: (_ for _ in ()).throw(ValueError(f"Non-finite JSON constant: {tok}")),
+                        parse_float=_parse_finite_float_token,
+                    )
+                except (json.JSONDecodeError, ValueError) as exc:
+                    raise ValueError(
+                        "Incompatible schema-2 campaign checkpoint: existing rows contain malformed/truncated JSON. "
+                        "Use a new --output-dir."
+                    ) from exc
+                if not isinstance(existing_row, dict):
+                    raise ValueError(
+                        "Incompatible schema-2 campaign checkpoint: existing rows contain a non-object JSON entry. "
+                        "Use a new --output-dir."
+                    )
+                has_v2_marker = existing_row.get("outcome_schema_version") == 2
+                emb_v2 = existing_row.get("outcome_v2")
+                has_v2_outcome = isinstance(emb_v2, dict) and emb_v2.get("schema_version") == 2
+                if not (has_v2_marker or has_v2_outcome):
+                    raise ValueError(
+                        "Incompatible schema-2 campaign checkpoint: existing rows lack outcome_schema_version=2 marker. "
+                        "Use a new --output-dir."
+                    )
+            if raw_bytes and not raw_bytes.endswith(b"\n"):
+                tmp_rows = rows_path.with_name(f".{rows_path.name}.tmp.{os.getpid()}")
+                with tmp_rows.open("wb") as handle:
+                    handle.write(raw_bytes + b"\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(tmp_rows, rows_path)
     elif path.exists() and _load_json(path) != protocol:
         raise ValueError("Output directory belongs to another campaign configuration; use a new --output-dir.")
     _write_json(path, protocol)
@@ -252,7 +317,10 @@ def _as_float(value: object) -> float | None:
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, (int, float)):
-        result = float(value)
+        try:
+            result = float(value)
+        except OverflowError:
+            return None
         return result if math.isfinite(result) else None
     return None
 
@@ -446,6 +514,7 @@ class PolicyState:
         run_obligations: set[str] | None = None,
         covered_before: set[str] | None = None,
         row: dict | None = None,
+        feedback_version: str = "legacy_v1",
     ) -> None:
         if not values or fitness is None:
             return
@@ -508,17 +577,33 @@ def _values_from_row(space: SearchSpace, row: dict) -> SearchCandidate | None:
     return None
 
 
+def _append_jsonl_row(rows_path: Path, row: dict) -> None:
+    """Append one JSONL row durably, guaranteeing a newline boundary after existing content."""
+    needs_leading_newline = False
+    if rows_path.exists() and rows_path.stat().st_size > 0:
+        with rows_path.open("rb") as rb:
+            rb.seek(-1, os.SEEK_END)
+            needs_leading_newline = rb.read(1) != b"\n"
+    payload = ("\n" if needs_leading_newline else "") + json.dumps(row) + "\n"
+    with rows_path.open("a", encoding="utf-8") as handle:
+        handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
 def _iter_rows(rows_path: Path):
     if not rows_path.exists():
         return
-    for line in rows_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line:
+    for raw_line in rows_path.read_bytes().decode("utf-8").split("\n"):
+        line = raw_line.rstrip("\r")
+        if not line.strip(" \t\r"):
             continue
         try:
-            yield json.loads(line)
+            obj = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if isinstance(obj, dict):
+            yield obj
 
 
 def _load_done(rows_path: Path, space: SearchSpace) -> tuple[set[tuple], int]:
@@ -532,16 +617,25 @@ def _load_done(rows_path: Path, space: SearchSpace) -> tuple[set[tuple], int]:
     return done, count
 
 
-def _semantic_fitness(row: dict, policy: str, *, engine_active: bool = False) -> float | None:
+def _semantic_fitness(
+    row: dict,
+    policy: str,
+    *,
+    engine_active: bool = False,
+    feedback_version: str = "legacy_v1",
+) -> float | None:
     if policy == "lsa":
         return _as_float(row.get("coverage_lsa_max"))
     if policy == "kmnc":
         return _as_float(row.get("coverage_kmnc"))
     if policy == "critonly":
-        return float(row.get("criticality", criticality_score(row)))
+        raw_crit = row.get("criticality") if "criticality" in row else criticality_score(row, feedback_version=feedback_version)
+        if raw_crit is None and feedback_version == "legacy_v1":
+            raw_crit = criticality_score(row, feedback_version=feedback_version)
+        return _as_float(raw_crit)
     if policy in ("avfuzzer", "causal", "semantic_crit"):
         from baselines import gap_fitness
-        return gap_fitness(row)
+        return gap_fitness(row, feedback_version=feedback_version)
     if policy == "semantic":
         if engine_active:
             return _as_float(row.get("engine_new_obligations"))
@@ -552,11 +646,17 @@ def _semantic_fitness(row: dict, policy: str, *, engine_active: bool = False) ->
     return None
 
 
-def _semantic_tiebreak(row: dict, policy: str, *, engine_active: bool = False) -> float | None:
+def _semantic_tiebreak(
+    row: dict,
+    policy: str,
+    *,
+    engine_active: bool = False,
+    feedback_version: str = "legacy_v1",
+) -> float | None:
     """Second selection key for guided policies."""
     if policy == "critonly":
         from baselines import gap_fitness
-        return gap_fitness(row)
+        return gap_fitness(row, feedback_version=feedback_version)
     if policy == "semantic":
         if engine_active:
             return _as_float(row.get("engine_run_covered_count"))
@@ -582,7 +682,13 @@ def _strip_adversary(spec: dict) -> dict:
     return stripped
 
 
-def _row_from_run(run_payload: dict, duration: float) -> dict:
+def _row_from_run(
+    run_payload: dict,
+    duration: float,
+    *,
+    attempt_id: str | None = None,
+    outcome_schema: int = 1,
+) -> dict:
     metadata = run_payload.get("metadata") or {}
     coverage = metadata.get("coverage") or {}
     semantic = metadata.get("semantic") or {}
@@ -590,7 +696,7 @@ def _row_from_run(run_payload: dict, duration: float) -> dict:
     collisions = run_payload.get("collisions") or []
     safety = classify_run(run_payload)
     safety_fields = {f"safety_{name}": value for name, value in safety.items() if name != "raw"}
-    return {
+    row = {
         "duration_s": round(duration, 2),
         "ticks_executed": run_payload.get("ticks_executed"),
         "reached_goal": bool(run_payload.get("reached_goal")),
@@ -614,10 +720,38 @@ def _row_from_run(run_payload: dict, duration: float) -> dict:
         "first_violation_sim_s": _as_float(metadata.get("first_violation_sim_s")),
         "run_error": None,
     }
+    if int(outcome_schema) == 2:
+        row["outcome_schema_version"] = 2
+    outcome_v2 = metadata.get("outcome_v2")
+    if isinstance(outcome_v2, dict):
+        row["outcome_schema_version"] = 2
+        row["outcome_profile_digest"] = outcome_v2.get("profile_digest")
+        row["outcome_v2"] = outcome_v2
+        row["run_id"] = run_payload.get("run_id") or outcome_v2.get("run_id")
+        row["execution_status"] = run_payload.get("execution_status") or outcome_v2.get("execution_status")
+        row["termination_reason"] = run_payload.get("termination_reason") or outcome_v2.get("termination_reason")
+        row["observed_duration_s"] = run_payload.get("observed_duration_s")
+        row["outcome_path"] = run_payload.get("outcome_path")
+        row["capture_manifest_path"] = run_payload.get("capture_manifest_path")
+        if "scenario_trigger_events" in metadata:
+            triggers = metadata.get("scenario_trigger_events") or []
+            row["trigger_activated"] = bool(triggers)
+    if attempt_id is not None:
+        row["attempt_id"] = attempt_id
+    return row
 
 
-def _failure_row(duration: float, message: str) -> dict:
-    return {
+def _failure_row(
+    duration: float,
+    message: str,
+    *,
+    attempt_id: str | None = None,
+    candidate_id: str | None = None,
+    failure_phase: str | None = None,
+    partial_run_path: str | None = None,
+    outcome_schema: int = 1,
+) -> dict:
+    row = {
         "duration_s": round(duration, 2),
         "ticks_executed": None,
         "reached_goal": False,
@@ -628,22 +762,50 @@ def _failure_row(duration: float, message: str) -> dict:
         "semantic_fulfilled_obligations": [],
         "semantic_missing_obligations": [],
         "semantic_covered_predicates": [],
-        "run_json_path": None,
+        "run_json_path": partial_run_path,
         "run_error": message[-2000:],
         "subprocess_returncode": None,
+        "execution_status": "failed",
     }
+    if int(outcome_schema) == 2:
+        row["outcome_schema_version"] = 2
+    if attempt_id is not None:
+        row["attempt_id"] = attempt_id
+    if candidate_id is not None:
+        row["candidate_id"] = candidate_id
+    if failure_phase is not None:
+        row["failure_phase"] = failure_phase
+    return row
 
 
-def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candidate_id: str, work_dir: Path, port: int) -> dict:
+def _run_evaluation_server(
+    args: argparse.Namespace,
+    spec_payload: dict,
+    candidate_id: str,
+    work_dir: Path,
+    port: int,
+    *,
+    attempt_id: str | None = None,
+) -> dict:
     work_dir.mkdir(parents=True, exist_ok=True)
     spec_path = work_dir / f"{candidate_id}.json"
     _write_json(spec_path, spec_payload)
+    outcome_schema = int(getattr(args, "outcome_schema", 1))
+    effective_attempt_id = attempt_id or (f"{candidate_id}-att1" if outcome_schema == 2 else None)
     started = time.time()
     try:
         _ensure_server(args, port)
     except Exception as exc:  # noqa: BLE001 - record and continue the matrix
-        return _failure_row(time.time() - started, f"server unavailable on port {port}: {exc!r}")
+        return _failure_row(
+            time.time() - started,
+            f"server unavailable on port {port}: {exc!r}",
+            attempt_id=effective_attempt_id,
+            candidate_id=candidate_id if outcome_schema == 2 else None,
+            failure_phase="server_startup" if outcome_schema == 2 else None,
+            outcome_schema=outcome_schema,
+        )
 
+    runs_dir = (work_dir / "runs" / effective_attempt_id) if (outcome_schema == 2 and effective_attempt_id) else (work_dir / "runs")
     command = [
         str(args.python_executable),
         str(SHAKEDOWN_SCRIPT),
@@ -661,7 +823,7 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
         "--max-ticks",
         str(args.max_ticks),
         "--output-dir",
-        str(work_dir / "runs"),
+        str(runs_dir),
         "--semantic-observer",
         "--semantic-stream-every",
         "1",
@@ -680,6 +842,14 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
     ]
     if args.agent_kind == "pcla" and args.pcla_agent:
         command.extend(["--pcla-agent", args.pcla_agent])
+    if outcome_schema == 2:
+        command.extend([
+            "--enable-outcome-capture",
+            "--outcome-schema", "2",
+            "--outcome-evidence-output", str(work_dir / "evidence"),
+        ])
+        if getattr(args, "outcome_profile", None) is not None:
+            command.extend(["--outcome-profile", str(args.outcome_profile)])
     if args.agent_kind == "autovla":
         if args.agent_repo_path is not None:
             command.extend(["--agent-repo-path", str(args.agent_repo_path)])
@@ -701,10 +871,11 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
 
     started = time.time()
     last_error = "no attempt executed"
-    for attempt in range(2):
+    max_attempts = 1 if outcome_schema == 2 else 2  # v2 charges every attempt explicitly; no silent free retry
+    for attempt in range(max_attempts):
         try:
             _ensure_server(args, port)
-        except Exception as exc:  # noqa: BLE001 - retry once, then record
+        except Exception as exc:  # noqa: BLE001 - retry once in legacy mode, then record
             _kill_carla_on_port(port)
             last_error = f"server unavailable on port {port}: {exc!r}"
             continue
@@ -723,24 +894,46 @@ def _run_evaluation_server(args: argparse.Namespace, spec_payload: dict, candida
             last_error = f"evaluation timed out after {args.eval_timeout_seconds}s (attempt {attempt + 1})"
             continue
         duration = time.time() - started
-        run_files = sorted((work_dir / "runs").glob("*.json"), key=lambda p: p.stat().st_mtime)
+        run_files = sorted(runs_dir.glob("*.json"), key=lambda p: p.stat().st_mtime) if runs_dir.exists() else []
         run_payload = _load_json(run_files[-1]) if run_files else None
         if isinstance(run_payload, dict):
-            row = _row_from_run(run_payload, duration)
+            row = _row_from_run(
+                run_payload,
+                duration,
+                attempt_id=effective_attempt_id,
+                outcome_schema=outcome_schema,
+            )
             row["run_json_path"] = str(run_files[-1])
             row["subprocess_returncode"] = completed.returncode
             if completed.returncode != 0:
-                row["run_error"] = completed.stderr[-2000:]
+                row["run_error"] = (completed.stderr or completed.stdout)[-2000:]
+                if outcome_schema == 2:
+                    row["failure_phase"] = "evaluation_nonzero_exit"
             return row
         last_error = (completed.stderr or completed.stdout)[-2000:]
         _kill_carla_on_port(port)
-    return _failure_row(time.time() - started, last_error)
+    return _failure_row(
+        time.time() - started,
+        last_error,
+        attempt_id=effective_attempt_id,
+        candidate_id=candidate_id if outcome_schema == 2 else None,
+        failure_phase="evaluation" if outcome_schema == 2 else None,
+        outcome_schema=outcome_schema,
+    )
 
 
 _AUTOWARE_SERVICES: dict = {}
 
 
-def _run_evaluation_autoware(args: argparse.Namespace, spec_payload: dict, candidate_id: str, work_dir: Path, port: int) -> dict:
+def _run_evaluation_autoware(
+    args: argparse.Namespace,
+    spec_payload: dict,
+    candidate_id: str,
+    work_dir: Path,
+    port: int,
+    *,
+    attempt_id: str | None = None,
+) -> dict:
     """Evaluate one candidate on Autoware (CARLA 0.9.15, real perception) through the persistent scenario service.
 
     Same contract as _run_evaluation_server: returns a row built by _row_from_run, with the semantic stream placed under
@@ -751,6 +944,8 @@ def _run_evaluation_autoware(args: argparse.Namespace, spec_payload: dict, candi
     from autoware_service import AutowareService, ServiceError  # noqa: E402
 
     work_dir.mkdir(parents=True, exist_ok=True)
+    outcome_schema = int(getattr(args, "outcome_schema", 1))
+    effective_attempt_id = attempt_id or (f"{candidate_id}-att1" if outcome_schema == 2 else None)
     started = time.time()
     spec = dict(spec_payload)
     spec["scenario_id"] = candidate_id                      # unique per evaluation: it names the service's result files
@@ -762,11 +957,38 @@ def _run_evaluation_autoware(args: argparse.Namespace, spec_payload: dict, candi
             svc = _AUTOWARE_SERVICES[town] = AutowareService(town, perception=getattr(args, "autoware_perception", "centerpoint/centerpoint"))
         run_payload = svc.evaluate(spec, timeout=args.eval_timeout_seconds)
     except ServiceError as exc:
-        return _failure_row(time.time() - started, f"autoware service: {exc}")
-    row = _row_from_run(run_payload, time.time() - started)
+        row = _failure_row(
+            time.time() - started,
+            f"autoware service: {exc}",
+            attempt_id=effective_attempt_id,
+            candidate_id=candidate_id if outcome_schema == 2 else None,
+            failure_phase="autoware_evaluation" if outcome_schema == 2 else None,
+            outcome_schema=outcome_schema,
+        )
+        if outcome_schema == 2:
+            row["backend_capabilities"] = {
+                "backend": "autoware",
+                "native_v2_capture": False,
+                "outcome_source": "failed_attempt",
+            }
+        return row
+    row = _row_from_run(
+        run_payload,
+        time.time() - started,
+        attempt_id=effective_attempt_id,
+        outcome_schema=outcome_schema,
+    )
+    if outcome_schema == 2 and "outcome_v2" not in row:
+        row["backend_capabilities"] = {
+            "backend": "autoware",
+            "native_v2_capture": False,
+            "outcome_source": "adapted_legacy",
+        }
     runs = work_dir / "runs"; runs.mkdir(exist_ok=True)
-    _write_json(runs / f"{candidate_id}.json", run_payload)
-    row["run_json_path"] = str(runs / f"{candidate_id}.json")
+    run_file_stem = effective_attempt_id if (outcome_schema == 2 and effective_attempt_id) else candidate_id
+    run_out_path = runs / f"{run_file_stem}.json"
+    _write_json(run_out_path, run_payload)
+    row["run_json_path"] = str(run_out_path)
     row["subprocess_returncode"] = 0
     stream = svc.semantic_stream(candidate_id)
     if stream is not None:
@@ -776,10 +998,21 @@ def _run_evaluation_autoware(args: argparse.Namespace, spec_payload: dict, candi
     return row
 
 
-def _run_evaluation_diagnostics(args: argparse.Namespace, spec_payload: dict, candidate_id: str, work_dir: Path, port: int) -> dict:
+def _run_evaluation_diagnostics(
+    args: argparse.Namespace,
+    spec_payload: dict,
+    candidate_id: str,
+    work_dir: Path,
+    port: int,
+    *,
+    attempt_id: str | None = None,
+) -> dict:
     work_dir.mkdir(parents=True, exist_ok=True)
+    outcome_schema = int(getattr(args, "outcome_schema", 1))
+    effective_attempt_id = attempt_id or (f"{candidate_id}-att1" if outcome_schema == 2 else None)
     spec_path = work_dir / f"{candidate_id}.json"
     _write_json(spec_path, spec_payload)
+    runs_dir = (work_dir / "runs" / effective_attempt_id) if (outcome_schema == 2 and effective_attempt_id) else (work_dir / "runs")
     command = [
         str(args.python_executable),
         str(DIAGNOSTICS_SCRIPT),
@@ -802,7 +1035,7 @@ def _run_evaluation_diagnostics(args: argparse.Namespace, spec_payload: dict, ca
         "--output-dir",
         str(work_dir / "diagnostics"),
         "--run-output-dir",
-        str(work_dir / "runs"),
+        str(runs_dir),
         "--telemetry-output",
         str(work_dir / "telemetry"),
         "--coverage-trace-output",
@@ -832,12 +1065,39 @@ def _run_evaluation_diagnostics(args: argparse.Namespace, spec_payload: dict, ca
     completed = subprocess.run(command, cwd=WORKSPACE_ROOT, env=env, text=True, capture_output=True, check=False)
     duration = time.time() - started
     _reap_orphan_carla(keep_port=port)
-    run_files = sorted((work_dir / "runs").glob("*.json"), key=lambda p: p.stat().st_mtime)
+    run_files = sorted(runs_dir.glob("*.json"), key=lambda p: p.stat().st_mtime) if runs_dir.exists() else []
     run_payload = _load_json(run_files[-1]) if run_files else None
     if isinstance(run_payload, dict):
-        row = _row_from_run(run_payload, duration)
+        row = _row_from_run(
+            run_payload,
+            duration,
+            attempt_id=effective_attempt_id,
+            outcome_schema=outcome_schema,
+        )
         row["run_json_path"] = str(run_files[-1])
         row["subprocess_returncode"] = completed.returncode
+        if outcome_schema == 2 and "outcome_v2" not in row:
+            row["backend_capabilities"] = {
+                "backend": "diagnostics",
+                "native_v2_capture": False,
+                "outcome_source": "adapted_legacy",
+            }
+        return row
+    if outcome_schema == 2:
+        row = _failure_row(
+            duration,
+            (completed.stderr or completed.stdout)[-2000:],
+            attempt_id=effective_attempt_id,
+            candidate_id=candidate_id,
+            failure_phase="diagnostics_evaluation",
+            outcome_schema=outcome_schema,
+        )
+        row["subprocess_returncode"] = completed.returncode
+        row["backend_capabilities"] = {
+            "backend": "diagnostics",
+            "native_v2_capture": False,
+            "outcome_source": "failed_attempt",
+        }
         return row
     return {
         "duration_s": round(duration, 2),
@@ -948,6 +1208,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="CARLA -quality-level used when booting the simulator "
              "(default: $SCOUT_CARLA_QUALITY or Epic).",
     )
+    parser.add_argument("--outcome-schema", type=int, choices=(1, 2), default=1,
+                        help="Outcome schema version to record (1: legacy default; 2: normalized v2 evidence capture).")
+    parser.add_argument("--outcome-profile", type=Path, default=None,
+                        help="Explicit v2 outcome profile JSON path.")
+    parser.add_argument("--feedback-version", choices=("legacy_v1", "v2_normalized"), default="legacy_v1",
+                        help="Declared online search feedback version.")
+    parser.add_argument("--replicate-id", default=None,
+                        help="Explicit replicate identifier written to protocol/rows.")
     parser.add_argument("--cuda-visible-devices", default=None)
     parser.add_argument("--obligations", nargs="*", default=None)
     parser.add_argument("--control", action="store_true", help="Run no-adversary controls instead of search.")
@@ -1157,7 +1425,14 @@ class _HazardPolicyState:
                 self.elite_witnesses[key] = set(witnesses)
 
 
-def _target_progress(oracle: Oracle, target: str | None, row: dict, *, use_criticality: bool = False) -> tuple[float, float]:
+def _target_progress(
+    oracle: Oracle,
+    target: str | None,
+    row: dict,
+    *,
+    use_criticality: bool = False,
+    feedback_version: str = "legacy_v1",
+) -> tuple[float, float | None]:
     """Reward the active obligation, with criticality then constituent witnesses as guidance.
 
     Lexicographic (covered, tiebreak): coverage of the target always dominates;
@@ -1180,7 +1455,13 @@ def _target_progress(oracle: Oracle, target: str | None, row: dict, *, use_criti
         }
         support = 0.05 * float(len(witnessed & actor_obs))
     if use_criticality:
-        return float(target in witnessed), float(row.get("criticality", criticality_score(row))) + 0.01 * support
+        raw_crit = row.get("criticality") if "criticality" in row else criticality_score(row, feedback_version=feedback_version)
+        if raw_crit is None and feedback_version == "legacy_v1":
+            raw_crit = criticality_score(row, feedback_version=feedback_version)
+        crit_val = _as_float(raw_crit)
+        if crit_val is None:
+            return float(target in witnessed), None
+        return float(target in witnessed), crit_val + 0.01 * support
     return float(target in witnessed), support
 
 
@@ -1252,21 +1533,22 @@ def _observe_hazard_row(
     if not template:
         return
     use_crit = bool(args.criticality)
+    fb_ver = str(getattr(args, "feedback_version", "legacy_v1"))
     witnesses: set | None = None
     cov_before: set | None = None
     if args.policy in ("semantic", "semantic_crit") and engine_state is not None:
         if target is not None:
-            witnesses = critical_pairs(row) if args.policy == "semantic_crit" else set(row.get("engine_run_obligations") or [])
+            witnesses = critical_pairs(row, feedback_version=fb_ver) if args.policy == "semantic_crit" else set(row.get("engine_run_obligations") or [])
             cov_before = set(crit_covered) if args.policy == "semantic_crit" else set(covered_before or set())
             fitness_value, tiebreak_value = _target_progress(
-                engine_state.oracle, target, row, use_criticality=use_crit
+                engine_state.oracle, target, row, use_criticality=use_crit, feedback_version=fb_ver,
             )
         elif args.policy == "semantic_crit":
-            pairs = critical_pairs(row)
+            pairs = critical_pairs(row, feedback_version=fb_ver)
             cov_before = set(crit_covered)
             witnesses = pairs
             fitness_value = float(len(pairs - cov_before))
-            tiebreak_value = gap_fitness(row)
+            tiebreak_value = gap_fitness(row, feedback_version=fb_ver)
         else:
             run_obs = set(row.get("engine_run_obligations") or [])
             cov_before = set(covered_before or set())
@@ -1274,11 +1556,14 @@ def _observe_hazard_row(
             fitness_value = float(len(run_obs - cov_before))
             tiebreak_value = float(len(run_obs))
     else:
-        fitness_value = _semantic_fitness(row, args.policy, engine_active=engine_active)
-        tiebreak_value = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
+        fitness_value = _semantic_fitness(row, args.policy, engine_active=engine_active, feedback_version=fb_ver)
+        tiebreak_value = _semantic_tiebreak(row, args.policy, engine_active=engine_active, feedback_version=fb_ver)
     if args.policy == "semantic_crit":
-        crit_covered |= critical_pairs(row)
-    run_crit = float(row.get("criticality", criticality_score(row)))
+        crit_covered |= critical_pairs(row, feedback_version=fb_ver)
+    raw_crit = row.get("criticality") if "criticality" in row else criticality_score(row, feedback_version=fb_ver)
+    if raw_crit is None and fb_ver == "legacy_v1":
+        raw_crit = criticality_score(row, feedback_version=fb_ver)
+    run_crit = _as_float(raw_crit)
     hazard_state.observe(
         template,
         target,
@@ -1289,7 +1574,7 @@ def _observe_hazard_row(
         covered_before=cov_before,
         criticality=run_crit,
     )
-    if args.policy in ("semantic", "semantic_crit") and exploit.patience > 0:
+    if args.policy in ("semantic", "semantic_crit") and exploit.patience > 0 and run_crit is not None:
         exploit.observe(
             target,
             str(target) in set(row.get("engine_run_obligations") or []),
@@ -1365,8 +1650,9 @@ def main() -> None:
         run_evaluation = _run_evaluation_autoware
     seen, done_count = _load_done(rows_path, space)
     rng = random.Random(args.seed)
+    fb_ver_init = str(getattr(args, "feedback_version", "legacy_v1"))
     from baselines import make_policy_state
-    state = make_policy_state(args.policy, space, PolicyState)
+    state = make_policy_state(args.policy, space, PolicyState, feedback_version=fb_ver_init)
     replay_covered: set[str] = set()
     for row in _iter_rows(rows_path):
         if row.get("rng_state"):
@@ -1375,8 +1661,8 @@ def main() -> None:
         previous = _values_from_row(space, row)
         state.observe(
             previous.to_dict() if previous is not None else None,
-            _semantic_fitness(row, args.policy, engine_active=engine_active),
-            _semantic_tiebreak(row, args.policy, engine_active=engine_active),
+            _semantic_fitness(row, args.policy, engine_active=engine_active, feedback_version=fb_ver_init),
+            _semantic_tiebreak(row, args.policy, engine_active=engine_active, feedback_version=fb_ver_init),
             run_obligations=set(row.get("engine_run_obligations") or []) if engine_active else None,
             covered_before=set(engine_state.suite_covered) if engine_state is not None else None,
             row=row,
@@ -1533,27 +1819,58 @@ def main() -> None:
         work_dir = args.output_dir / "evaluations" / candidate_id
         port = args.server_port if args.mode == "server" else args.server_port + index
         args.execution_seed = args.seed + index
+        fb_ver = str(getattr(args, "feedback_version", "legacy_v1"))
+        v2_mode = int(getattr(args, "outcome_schema", 1)) == 2 or fb_ver != "legacy_v1"
+        attempt_id = f"{args.policy}-{args.route_label}-{args.seed}-{index:04d}-{uuid.uuid4().hex[:8]}" if v2_mode else None
         if args.paired_controls and not args.control:
             nominal_dir = work_dir / "paired_control"
-            nominal = run_evaluation(args=args, spec_payload=_strip_adversary(payload), candidate_id=candidate_id + "-nominal", work_dir=nominal_dir, port=port)
+            nominal_kwargs = {"attempt_id": f"{attempt_id}-nominal"} if attempt_id is not None else {}
+            nominal = run_evaluation(args=args, spec_payload=_strip_adversary(payload), candidate_id=candidate_id + "-nominal", work_dir=nominal_dir, port=port, **nominal_kwargs)
             if engine_state is not None:
                 nominal.update(EngineCoverageState(engine_state.oracle).observe_stream(nominal_dir / "semantic", index))
             row["paired_control"] = nominal
-        row.update(run_evaluation(args=args, spec_payload=payload, candidate_id=candidate_id, work_dir=work_dir, port=port))
+        eval_kwargs = {"attempt_id": attempt_id} if attempt_id is not None else {}
+        row.update(run_evaluation(args=args, spec_payload=payload, candidate_id=candidate_id, work_dir=work_dir, port=port, **eval_kwargs))
         row["execution_seed"] = args.execution_seed
-        row["criticality"] = criticality_score(row)
+        crit_val = criticality_score(row, feedback_version=fb_ver)
+        row["criticality"] = crit_val
         covered_before = set(engine_state.suite_covered) if engine_state is not None else None
         if engine_state is not None:
             row.update(engine_state.observe_stream(work_dir / "semantic", index))
             if shared_store is not None:
                 shared_store.merge(engine_state.suite_covered)
+        fitness_value = (
+            _semantic_fitness(row, args.policy, engine_active=engine_active, feedback_version=fb_ver)
+            if not args.control else None
+        )
+        tiebreak_value = (
+            _semantic_tiebreak(row, args.policy, engine_active=engine_active, feedback_version=fb_ver)
+            if not args.control else None
+        )
+        if v2_mode:
+            if int(getattr(args, "outcome_schema", 1)) == 2:
+                row.setdefault("outcome_schema_version", 2)
+                if isinstance(row.get("paired_control"), dict):
+                    row["paired_control"].setdefault("outcome_schema_version", 2)
+            row["feedback_version"] = fb_ver
+            row.setdefault("attempt_id", attempt_id)
+            row.setdefault("candidate_id", candidate_id)
+            row["candidate_key"] = json.dumps(evaluated_values, sort_keys=True) if evaluated_values is not None else None
+            row["fitness"] = fitness_value
+            row["fallback_selection"] = bool(fitness_value is None and not args.control and args.policy != "random")
+            if evaluated_values is not None:
+                row["mutation_clipped"] = any(
+                    abs(float(evaluated_values.get(d.name, d.low)) - d.low) <= 1e-9
+                    or abs(float(evaluated_values.get(d.name, d.high)) - d.high) <= 1e-9
+                    for d in space.dimensions()
+                    if d.name in evaluated_values
+                )
+            if getattr(args, "replicate_id", None) is not None:
+                row["replicate_id"] = str(args.replicate_id)
         row["rng_state"] = rng.getstate()
         row["protocol_version"] = PROTOCOL_VERSION
-        with rows_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(row) + "\n")
+        _append_jsonl_row(rows_path, row)
         if not args.control:
-            fitness_value = _semantic_fitness(row, args.policy, engine_active=engine_active)
-            tiebreak_value = _semantic_tiebreak(row, args.policy, engine_active=engine_active)
             if args.hazard_search and hazard_state is not None and row.get("template"):
                 _observe_hazard_row(
                     args,

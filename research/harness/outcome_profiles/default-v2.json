@@ -1,0 +1,32 @@
+{
+  "profile_id": "scout-offline-outcomes",
+  "version": 2,
+  "status": "draft",
+  "validation_refs": [],
+  "settings": [
+    {"name": "ttc_s", "value": 1.5, "unit": "s", "provenance": "literature_informed", "rationale": "FHWA SSAM chapter 2 starting point; fixed-heading projection transfer remains unvalidated."},
+    {"name": "proximity_m", "value": 2.5, "unit": "m", "provenance": "supervisor_proposal", "rationale": "Descriptive footprint clearance, not a stand-alone near-miss criterion."},
+    {"name": "deceleration_mps2", "value": 8.0, "unit": "m/s^2", "provenance": "supervisor_proposal", "rationale": "Strict exceedance, with speed and control gates; experimental until validated."},
+    {"name": "braking_speed_mps", "value": 5.0, "unit": "m/s", "provenance": "supervisor_proposal", "rationale": "Pre-event speed must strictly exceed this value."},
+    {"name": "stationary_speed_mps", "value": 0.2, "unit": "m/s", "provenance": "supervisor_proposal", "rationale": "Descriptive immobilization only; does not establish unjustified waiting."},
+    {"name": "immobilization_s", "value": 10.0, "unit": "s", "provenance": "experimental", "rationale": "Continuous sampled stationary interval; inclusive duration threshold."},
+    {"name": "collision_gap_s", "value": 0.25, "unit": "s", "provenance": "experimental", "rationale": "Maximum gap between same-actor callbacks grouped into one contact episode."},
+    {"name": "encounter_rearm_s", "value": 0.5, "unit": "s", "provenance": "experimental", "rationale": "Continuous observed no-conflict, non-close interval required to close an encounter."},
+    {"name": "braking_duration_s", "value": 0.1, "unit": "s", "provenance": "experimental", "rationale": "Observed span of qualifying samples; no extrapolation before first sample."},
+    {"name": "projection_horizon_s", "value": 3.0, "unit": "s", "provenance": "experimental", "rationale": "Fixed-heading, constant horizontal velocity projection; vertically static actors only."},
+    {"name": "scan_radius_m", "value": 50.0, "unit": "m", "provenance": "experimental", "rationale": "Declared observation domain only; does not establish absence outside this radius."},
+    {"name": "max_sample_interval_s", "value": 0.11, "unit": "s", "provenance": "experimental", "rationale": "Allows nominal 10 Hz plus numeric tolerance; larger gaps censor episodes."},
+    {"name": "minimum_observation_s", "value": 1.0, "unit": "s", "provenance": "experimental", "rationale": "Minimum complete interval for negative descriptive assessments."},
+    {"name": "task_window_s", "value": 10.0, "unit": "s", "provenance": "experimental", "rationale": "Continuous eligible observation window for lack of new route progress; legitimate waits excluded."},
+    {"name": "progress_epsilon_m", "value": 1.0, "unit": "m", "provenance": "experimental", "rationale": "Maximum advance in route high-water arc length over the task window to qualify as no progress."},
+    {"name": "quality_min_observation_s", "value": 10.0, "unit": "s", "provenance": "experimental", "rationale": "Minimum complete evaluation interval for the low-interaction proxy; not a triviality certificate."},
+    {"name": "interaction_radius_m", "value": 15.0, "unit": "m", "provenance": "experimental", "rationale": "Nearby footprint clearance defines an interaction opportunity, supplemented by predicted contact within the horizon; includes safe interactions."},
+    {"name": "hazard_braking_antecedent_s", "value": 1.5, "unit": "s", "provenance": "experimental", "rationale": "Fixed antecedent window linking commanded hard braking to an observed predicted-conflict encounter (excluding passive parallel proximity); observational association only, never causal proof."},
+    {"name": "speeding_tolerance_mps", "value": 1.0, "unit": "m/s", "provenance": "experimental", "rationale": "Speed excess above declared map speed limit (~3.6 km/h) before qualifying as speeding; requires explicit map speed limit."},
+    {"name": "speeding_duration_s", "value": 1.0, "unit": "s", "provenance": "experimental", "rationale": "Continuous observed interval above speed limit plus tolerance to prevent single-frame limit-transition spikes."},
+    {"name": "stop_sign_speed_mps", "value": 0.5, "unit": "m/s", "provenance": "experimental", "rationale": "Maximum ego speed counted as coming to a stop inside an applicable stop-sign approach zone."},
+    {"name": "stop_sign_dwell_s", "value": 1.0, "unit": "s", "provenance": "experimental", "rationale": "Minimum continuous low-speed dwell inside an applicable stop-sign approach zone before crossing the stop line."},
+    {"name": "wrong_way_speed_mps", "value": 1.0, "unit": "m/s", "provenance": "experimental", "rationale": "Minimum opposing velocity component along a lane's permitted travel direction (excluding legal reverse and junctions)."},
+    {"name": "wrong_way_duration_s", "value": 1.0, "unit": "s", "provenance": "experimental", "rationale": "Continuous observed interval of opposing travel required for wrong-way assessment."}
+  ]
+}

@@ -82,6 +82,8 @@ template can plausibly release it.
 from __future__ import annotations
 
 import copy
+from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 import json
 import math
 import random
@@ -102,6 +104,69 @@ class SearchSpaceError(ValueError):
     """Raised when a candidate or spec does not match the declarative space."""
 
 
+def _safe_repr(value: Any) -> str:
+    """Format arbitrary values for error messages without tripping int_max_str_digits or RecursionError."""
+    try:
+        return repr(value)
+    except (ValueError, RecursionError):
+        return f"<{type(value).__name__}>"
+
+
+def _to_exact_fraction(raw: Any, dim_name: str) -> Fraction:
+    """Convert a finite numeric value to an exact rational without float precision loss."""
+    if isinstance(raw, bool):
+        raise SearchSpaceError(f"Dimension '{dim_name}' expects a number, got {_safe_repr(raw)}.")
+    if isinstance(raw, Fraction):
+        return raw
+    if isinstance(raw, int):
+        return Fraction(raw)
+    if isinstance(raw, Decimal):
+        if not raw.is_finite():
+            raise SearchSpaceError(f"Dimension '{dim_name}' received a non-finite value {_safe_repr(raw)}.")
+        return Fraction(raw)
+    if isinstance(raw, float):
+        if not math.isfinite(raw):
+            raise SearchSpaceError(f"Dimension '{dim_name}' received a non-finite value {_safe_repr(raw)}.")
+        return Fraction(raw)
+    if isinstance(raw, str):
+        text = raw.strip()
+        if "/" in text:
+            try:
+                return Fraction(text)
+            except (ValueError, ZeroDivisionError) as exc:
+                raise SearchSpaceError(f"Dimension '{dim_name}' expects a number, got {_safe_repr(raw)}.") from exc
+        try:
+            dec = Decimal(text)
+        except InvalidOperation as exc:
+            raise SearchSpaceError(f"Dimension '{dim_name}' expects a number, got {_safe_repr(raw)}.") from exc
+        if not dec.is_finite():
+            raise SearchSpaceError(f"Dimension '{dim_name}' received a non-finite value {_safe_repr(raw)}.")
+        return Fraction(dec)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise SearchSpaceError(f"Dimension '{dim_name}' expects a number, got {_safe_repr(raw)}.") from exc
+    if not math.isfinite(value):
+        raise SearchSpaceError(f"Dimension '{dim_name}' received a non-finite value {_safe_repr(raw)}.")
+    return Fraction(value)
+
+
+def _leq_with_tol(val: float, bound: float, tol: float) -> bool:
+    if val <= bound:
+        return True
+    if tol == 0.0:
+        return False
+    return (val - bound) <= tol
+
+
+def _geq_with_tol(val: float, bound: float, tol: float) -> bool:
+    if val >= bound:
+        return True
+    if tol == 0.0:
+        return False
+    return (bound - val) <= tol
+
+
 @dataclass(frozen=True, slots=True)
 class SearchDimension:
     """One declarative axis of the candidate space."""
@@ -119,86 +184,487 @@ class SearchDimension:
     description: str = ""
 
     def __post_init__(self) -> None:
-        if not self.name:
-            raise SearchSpaceError("Search dimension names must be non-empty.")
-        if self.kind not in DIMENSION_KINDS:
+        if not isinstance(self.name, str) or not self.name:
             raise SearchSpaceError(
-                f"Unknown kind '{self.kind}' for dimension '{self.name}'; expected one of {DIMENSION_KINDS}."
+                f"Search dimension names must be non-empty strings, got {_safe_repr(self.name)}."
             )
+        if not isinstance(self.spec_path, str) or not self.spec_path:
+            raise SearchSpaceError(
+                f"Dimension '{self.name}' spec_path must be a non-empty string, got {_safe_repr(self.spec_path)}."
+            )
+        if not isinstance(self.kind, str) or self.kind not in DIMENSION_KINDS:
+            raise SearchSpaceError(
+                f"Unknown kind {_safe_repr(self.kind)} for dimension '{self.name}'; expected one of {DIMENSION_KINDS}."
+            )
+        if not isinstance(self.runtime, str):
+            raise SearchSpaceError(
+                f"Dimension '{self.name}' runtime must be a string, got {_safe_repr(self.runtime)}."
+            )
+        if not isinstance(self.description, str):
+            raise SearchSpaceError(
+                f"Dimension '{self.name}' description must be a string, got {_safe_repr(self.description)}."
+            )
+        if isinstance(self.decimals, bool) or not isinstance(self.decimals, int) or self.decimals < 0:
+            raise SearchSpaceError(
+                f"Dimension '{self.name}' decimals must be a non-negative integer, got {_safe_repr(self.decimals)}."
+            )
+        try:
+            str(self.decimals)
+        except ValueError as exc:
+            raise SearchSpaceError(
+                f"Dimension '{self.name}' decimals exceeds integer string serialization limit."
+            ) from exc
+        for field_name in ("low", "high"):
+            if getattr(self, field_name) is None:
+                raise SearchSpaceError(f"Dimension '{self.name}' {field_name} is required and cannot be null.")
         for field_name in ("low", "high", "step", "sigma", "default"):
             raw = getattr(self, field_name)
             if raw is not None:
-                object.__setattr__(self, field_name, float(raw))
-        if not math.isfinite(self.low) or not math.isfinite(self.high):
+                if isinstance(raw, bool):
+                    raise SearchSpaceError(f"Dimension '{self.name}' {field_name} cannot be a boolean.")
+                if self.kind == "int" and field_name in ("low", "high", "step", "default"):
+                    if isinstance(raw, int):
+                        try:
+                            str(raw)
+                        except ValueError as exc:
+                            raise SearchSpaceError(
+                                f"Dimension '{self.name}' {field_name} exceeds integer string serialization limit."
+                            ) from exc
+                        object.__setattr__(self, field_name, int(raw))
+                        continue
+                    if isinstance(raw, (Fraction, Decimal, str)):
+                        q_val = _to_exact_fraction(raw, self.name)
+                        if q_val.denominator == 1:
+                            try:
+                                str(q_val.numerator)
+                            except ValueError as exc:
+                                raise SearchSpaceError(
+                                    f"Dimension '{self.name}' {field_name} exceeds integer string serialization limit."
+                                ) from exc
+                            object.__setattr__(self, field_name, int(q_val.numerator))
+                            continue
+                        try:
+                            val_f = float(q_val)
+                        except OverflowError:
+                            val_f = math.inf
+                        if math.isfinite(val_f) and Fraction(val_f) == q_val:
+                            object.__setattr__(self, field_name, val_f)
+                        else:
+                            try:
+                                str(q_val.numerator)
+                                str(q_val.denominator)
+                            except ValueError as exc:
+                                raise SearchSpaceError(
+                                    f"Dimension '{self.name}' {field_name} exceeds integer string serialization limit."
+                                ) from exc
+                            object.__setattr__(self, field_name, q_val)
+                        continue
+                try:
+                    val_f = float(raw)
+                except (TypeError, ValueError, OverflowError) as exc:
+                    raise SearchSpaceError(
+                        f"Dimension '{self.name}' {field_name} expects a finite number, got {_safe_repr(raw)}."
+                    ) from exc
+                object.__setattr__(self, field_name, val_f)
+        if not (isinstance(self.low, (int, Fraction)) or math.isfinite(self.low)) or not (
+            isinstance(self.high, (int, Fraction)) or math.isfinite(self.high)
+        ):
             raise SearchSpaceError(f"Dimension '{self.name}' bounds must be finite.")
+        if self.sigma is not None and not math.isfinite(self.sigma):
+            raise SearchSpaceError(f"Dimension '{self.name}' sigma must be finite.")
+        if self.default is not None and not (isinstance(self.default, (int, Fraction)) or math.isfinite(self.default)):
+            raise SearchSpaceError(f"Dimension '{self.name}' default must be finite.")
         if self.high < self.low:
             raise SearchSpaceError(f"Dimension '{self.name}' has high < low ({self.high} < {self.low}).")
-        if self.step is not None and (not math.isfinite(self.step) or self.step <= 0):
+        if self.kind != "int":
+            try:
+                span = self.high - self.low
+            except OverflowError as exc:
+                raise SearchSpaceError(
+                    f"Dimension '{self.name}' span [{self.low}, {self.high}] overflows float."
+                ) from exc
+            if not math.isfinite(span):
+                raise SearchSpaceError(f"Dimension '{self.name}' span [{self.low}, {self.high}] overflows float.")
+        else:
+            span = None
+        if self.step is not None and (
+            not (isinstance(self.step, (int, Fraction)) or math.isfinite(self.step)) or self.step <= 0
+        ):
             raise SearchSpaceError(f"Dimension '{self.name}' step must be positive and finite.")
-        if self.decimals < 0:
-            raise SearchSpaceError(f"Dimension '{self.name}' decimals must be non-negative.")
+        tol = self._bound_tol()
+        if self.step is not None and self.kind != "int":
+            pad = self._rounding_pad()
+            step_f = float(self.step)
+            try:
+                span_steps = (float(span) / step_f) + (pad / step_f) + (tol / step_f)
+            except OverflowError as exc:
+                raise SearchSpaceError(
+                    f"Dimension '{self.name}' step {self.step} is too small for span [{self.low}, {self.high}]."
+                ) from exc
+            if not math.isfinite(span_steps):
+                raise SearchSpaceError(
+                    f"Dimension '{self.name}' step {self.step} is too small for span [{self.low}, {self.high}]."
+                )
+        if self.kind == "int":
+            lo_i = self.low if isinstance(self.low, int) else int(math.ceil(self.low))
+            hi_i = self.high if isinstance(self.high, int) else int(math.floor(self.high))
+            if lo_i > hi_i:
+                raise SearchSpaceError(
+                    f"Integer dimension '{self.name}' has no integer values in [{self.low}, {self.high}]."
+                )
+
+    def _rounding_pad(self) -> float:
+        """Maximum amount rounding can pull a stepped value back inside ``[low, high]``."""
+        if self.kind == "int":
+            return 0.5
+        if self.decimals > 325:
+            return 0.0
+        return 0.5 * (10.0 ** (-self.decimals))
+
+    def _bound_tol(self) -> float:
+        """Float representation tolerance scaled to bounds; strictly zero for integer or fixed-point dimensions."""
+        if self.kind == "int":
+            return 0.0
+        span = self.high - self.low
+        if span <= 0.0:
+            return 0.0
+        eps = max(abs(self.low), abs(self.high), 1.0) * 1e-12
+        return min(eps, span * 1e-6)
 
     def coerce(self, raw: Any) -> int | float:
         """Round/clamp-format a raw numeric value to the dimension's grid."""
+        if isinstance(raw, bool):
+            raise SearchSpaceError(f"Dimension '{self.name}' expects a number, got {_safe_repr(raw)}.")
+        if self.kind == "int":
+            raw_q = _to_exact_fraction(raw, self.name)
+            if self.step is None:
+                return int(round(raw_q))
+            low_q = Fraction(self.low)
+            step_q = Fraction(self.step)
+            k = round((raw_q - low_q) / step_q)
+            return int(round(low_q + k * step_q))
         try:
             value = float(raw)
-        except (TypeError, ValueError) as exc:
-            raise SearchSpaceError(f"Dimension '{self.name}' expects a number, got {raw!r}.") from exc
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise SearchSpaceError(f"Dimension '{self.name}' expects a number, got {_safe_repr(raw)}.") from exc
         if not math.isfinite(value):
-            raise SearchSpaceError(f"Dimension '{self.name}' received a non-finite value {raw!r}.")
+            raise SearchSpaceError(f"Dimension '{self.name}' received a non-finite value {_safe_repr(raw)}.")
         if self.step is not None:
-            value = self.low + round((value - self.low) / self.step) * self.step
-        if self.kind == "int":
-            return int(round(value))
-        return round(value, self.decimals)
+            try:
+                ratio = (value - float(self.low)) / float(self.step)
+                if not math.isfinite(ratio):
+                    raise SearchSpaceError(f"Dimension '{self.name}' value {_safe_repr(raw)} overflows step grid.")
+                value = float(self.low) + round(ratio) * float(self.step)
+            except OverflowError as exc:
+                raise SearchSpaceError(f"Dimension '{self.name}' value {_safe_repr(raw)} overflows step grid.") from exc
+            if not math.isfinite(value):
+                raise SearchSpaceError(f"Dimension '{self.name}' value {_safe_repr(raw)} overflows step grid.")
+        rounded = round(value, self.decimals)
+        if not math.isfinite(rounded):
+            raise SearchSpaceError(f"Dimension '{self.name}' value {_safe_repr(raw)} overflows float on rounding.")
+        return rounded
 
     def in_bounds(self, raw: Any) -> bool:
-        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        if isinstance(raw, bool) or not isinstance(raw, (int, float, Fraction, Decimal, str)):
             return False
-        value = float(raw)
-        if not math.isfinite(value):
+        if self.kind == "int":
+            try:
+                raw_q = _to_exact_fraction(raw, self.name)
+            except SearchSpaceError:
+                return False
+            return Fraction(self.low) <= raw_q <= Fraction(self.high)
+        if isinstance(raw, Decimal) and not raw.is_finite():
             return False
-        return self.low - 1e-9 <= value <= self.high + 1e-9
+        try:
+            raw_f = float(raw)
+        except (TypeError, ValueError, OverflowError):
+            return False
+        if not math.isfinite(raw_f):
+            return False
+        tol = self._bound_tol()
+        if tol == 0.0 or (self.low <= raw_f <= self.high):
+            return self.low <= raw_f <= self.high
+        if raw_f < self.low:
+            return (self.low - raw_f) <= tol
+        return (raw_f - self.high) <= tol
 
     def validate(self, raw: Any) -> None:
         if not self.in_bounds(raw):
             raise SearchSpaceError(
-                f"Dimension '{self.name}' value {raw!r} is outside [{self.low}, {self.high}]."
+                f"Dimension '{self.name}' value {_safe_repr(raw)} is outside [{self.low}, {self.high}]."
             )
 
+    def _step_image(self, k: int) -> int | float:
+        assert self.step is not None
+        if self.kind == "int":
+            if isinstance(self.low, int) and isinstance(self.step, int):
+                return self.low + k * self.step
+            return int(round(Fraction(self.low) + k * Fraction(self.step)))
+        return round(float(self.low) + k * float(self.step), self.decimals)
+
+    def _step_range_int(self, lo_i: int, hi_i: int) -> tuple[int, int]:
+        """Closed-form exact ``(k_min, k_max)`` for integer stepped dimensions."""
+        assert self.step is not None and self.step > 0
+        low_q = Fraction(self.low)
+        step_q = Fraction(self.step)
+        # round(L + k*S) >= lo_i iff L + k*S >= lo_i - 1/2 (lo_i even) or > lo_i - 1/2 (lo_i odd)
+        p = (Fraction(lo_i) - Fraction(1, 2) - low_q) / step_q
+        if (lo_i & 1) and p.denominator == 1:
+            k_min = max(0, p.numerator + 1)
+        else:
+            k_min = max(0, math.ceil(p))
+        # round(L + k*S) <= hi_i iff L + k*S <= hi_i + 1/2 (hi_i even) or < hi_i + 1/2 (hi_i odd)
+        q = (Fraction(hi_i) + Fraction(1, 2) - low_q) / step_q
+        if (hi_i & 1) and q.denominator == 1:
+            k_max = q.numerator - 1
+        else:
+            k_max = math.floor(q)
+        return k_min, k_max
+
+    def _step_range(self, tol: float) -> tuple[int, int]:
+        """Return exact ``(k_min, k_max)`` indices whose ``_step_image(k)`` lies inside bounds."""
+        assert self.step is not None and self.step > 0
+        if self.kind == "int":
+            lo_i = self.low if isinstance(self.low, int) else int(math.ceil(self.low))
+            hi_i = self.high if isinstance(self.high, int) else int(math.floor(self.high))
+            return self._step_range_int(lo_i, hi_i)
+        pad = self._rounding_pad()
+        step_f = float(self.step)
+        try:
+            raw_k_span = (float(self.high - self.low) / step_f) + (pad / step_f) + (tol / step_f)
+        except OverflowError as exc:
+            raise SearchSpaceError(
+                f"Dimension '{self.name}' step {self.step} is too small for span [{self.low}, {self.high}]."
+            ) from exc
+        if not math.isfinite(raw_k_span):
+            raise SearchSpaceError(
+                f"Dimension '{self.name}' step {self.step} is too small for span [{self.low}, {self.high}]."
+            )
+        low_f = float(self.low)
+        high_f = float(self.high)
+
+        def _is_within_hi(k: int) -> bool:
+            try:
+                prod = k * step_f
+                if not math.isfinite(prod):
+                    return False
+                val = low_f + prod
+                if not math.isfinite(val):
+                    return False
+                img = round(val, self.decimals)
+            except OverflowError:
+                return False
+            if not math.isfinite(img):
+                return False
+            return _leq_with_tol(img, high_f, tol)
+
+        max_k = max(0, int(math.floor(raw_k_span)))
+        # Exponentially gallop past any float-absorption plateau or 1-ULP undershoot in O(log K).
+        if _is_within_hi(max_k):
+            hi_bound = max_k
+            delta = 1
+            while _is_within_hi(hi_bound + delta):
+                hi_bound += delta
+                delta *= 2
+            search_lo = hi_bound
+            search_hi = hi_bound + delta - 1
+        else:
+            search_lo = -1
+            search_hi = max_k - 1
+        # Monotonic O(log K) binary search for largest k_max with f(k) <= high + tol
+        lo, hi = search_lo, search_hi
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if _is_within_hi(mid):
+                lo = mid
+            else:
+                hi = mid - 1
+        k_max = lo
+        if k_max < 0:
+            return 1, 0
+        # Monotonic O(log k_max) binary search for smallest k_min with f(k) >= low - tol
+        lo, hi = 0, k_max + 1
+        while lo < hi:
+            mid = (lo + hi) // 2
+            img_m = float(self._step_image(mid))
+            if _geq_with_tol(img_m, low_f, tol):
+                hi = mid
+            else:
+                lo = mid + 1
+        k_min = lo
+        return k_min, k_max
+
+    def _coerce_in_bounds(self, raw: Any) -> int | float:
+        """Idempotently coerce an in-bounds value to a valid grid point inside ``[self.low, self.high]``."""
+        if isinstance(raw, bool):
+            raise SearchSpaceError(f"Dimension '{self.name}' expects a number, got {_safe_repr(raw)}.")
+        if self.kind == "int":
+            lo_i = self.low if isinstance(self.low, int) else int(math.ceil(self.low))
+            hi_i = self.high if isinstance(self.high, int) else int(math.floor(self.high))
+            raw_q = _to_exact_fraction(raw, self.name)
+            bounded_q = min(max(raw_q, Fraction(lo_i)), Fraction(hi_i))
+            if self.step is None:
+                return int(round(bounded_q))
+            low_q = Fraction(self.low)
+            step_q = Fraction(self.step)
+            if isinstance(self.low, int) and isinstance(self.step, int):
+                max_k = max(0, (hi_i - self.low) // self.step)
+                k = min(max(0, round((bounded_q - low_q) / step_q)), max_k)
+                return self.low + k * self.step
+            k_min, k_max = self._step_range_int(lo_i, hi_i)
+            if k_min <= k_max:
+                lo, hi = k_min, k_max + 1
+                while lo < hi:
+                    mid = (lo + hi) // 2
+                    if self._step_image(mid) >= bounded_q:
+                        hi = mid
+                    else:
+                        lo = mid + 1
+                k_ge = lo
+                if k_ge <= k_max:
+                    val_ge = int(self._step_image(k_ge))
+                    if val_ge == bounded_q:
+                        return val_ge
+                candidates_i: list[int] = []
+                if k_ge <= k_max:
+                    candidates_i.append(int(self._step_image(k_ge)))
+                if k_ge - 1 >= k_min:
+                    candidates_i.append(int(self._step_image(k_ge - 1)))
+                if len(candidates_i) == 2 and abs(candidates_i[0] - bounded_q) == abs(candidates_i[1] - bounded_q):
+                    std_k = round((bounded_q - low_q) / step_q)
+                    std_val = int(round(low_q + std_k * step_q))
+                    if std_val in candidates_i:
+                        return std_val
+                return min(candidates_i, key=lambda c: (abs(c - bounded_q), c))
+            return min(max(int(round(bounded_q)), lo_i), hi_i)
+        try:
+            raw_f = float(raw)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise SearchSpaceError(f"Dimension '{self.name}' expects a number, got {_safe_repr(raw)}.") from exc
+        if not math.isfinite(raw_f):
+            raise SearchSpaceError(f"Dimension '{self.name}' received a non-finite value {_safe_repr(raw)}.")
+        bounded = min(max(raw_f, float(self.low)), float(self.high))
+        tol = self._bound_tol()
+        if self.step is not None and self.step > 0:
+            k_min, k_max = self._step_range(tol)
+            if k_min <= k_max:
+                # Binary search for smallest k in [k_min, k_max] with f(k) >= bounded (exact; no drift!)
+                lo, hi = k_min, k_max + 1
+                while lo < hi:
+                    mid = (lo + hi) // 2
+                    if float(self._step_image(mid)) >= bounded:
+                        hi = mid
+                    else:
+                        lo = mid + 1
+                k_ge = lo
+                if k_ge <= k_max:
+                    val_ge = self._step_image(k_ge)
+                    if float(val_ge) == bounded:
+                        return val_ge  # Already an exact fixed point in the grid image
+                candidates: list[int | float] = []
+                if k_ge <= k_max:
+                    candidates.append(self._step_image(k_ge))
+                if k_ge - 1 >= k_min:
+                    candidates.append(self._step_image(k_ge - 1))
+                if len(candidates) == 2:
+                    gap = abs(float(candidates[0]) - float(candidates[1]))
+                    tie_tol = gap * 1e-9
+                    if abs(abs(float(candidates[0]) - bounded) - abs(float(candidates[1]) - bounded)) <= tie_tol:
+                        std = self.coerce(bounded)
+                        for c in candidates:
+                            if c == std:
+                                return c
+                return min(candidates, key=lambda c: (abs(float(c) - bounded), float(c)))
+            return bounded
+        coerced = round(bounded, self.decimals)
+        if math.isfinite(coerced) and self.in_bounds(coerced):
+            return coerced
+        lo_grid: float | None = None
+        hi_grid: float | None = None
+        if self.decimals <= 308:
+            scale = 10.0 ** self.decimals
+            lo_scaled = (self.low - tol) * scale
+            hi_scaled = (self.high + tol) * scale
+            if math.isfinite(lo_scaled) and math.isfinite(hi_scaled):
+                lo_grid = round(math.ceil(lo_scaled) / scale, self.decimals)
+                hi_grid = round(math.floor(hi_scaled) / scale, self.decimals)
+        if lo_grid is None or hi_grid is None:
+            from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
+            q = Decimal(1).scaleb(-self.decimals)
+            lo_dec = Decimal.from_float(self.low) - Decimal.from_float(tol)
+            hi_dec = Decimal.from_float(self.high) + Decimal.from_float(tol)
+            lo_grid = float(lo_dec.quantize(q, rounding=ROUND_CEILING))
+            hi_grid = float(hi_dec.quantize(q, rounding=ROUND_FLOOR))
+        if math.isfinite(lo_grid) and math.isfinite(hi_grid) and _leq_with_tol(lo_grid, hi_grid, tol):
+            cand = hi_grid if coerced > self.high else lo_grid
+            if self.in_bounds(cand):
+                return cand
+        return bounded
+
     def missing_value(self) -> int | float:
-        base = self.default if self.default is not None else (self.low + self.high) / 2.0
-        return self.coerce(max(self.low, min(self.high, float(base))))
+        if self.kind == "int":
+            if self.default is not None:
+                base_q = _to_exact_fraction(self.default, self.name)
+            else:
+                base_q = (Fraction(self.low) + Fraction(self.high)) / 2
+            return self._coerce_in_bounds(base_q)
+        base = self.default if self.default is not None else self.low + (self.high - self.low) / 2.0
+        clamped_base = max(float(self.low), min(float(self.high), float(base)))
+        return self._coerce_in_bounds(clamped_base)
 
     @property
     def sigma_or_default(self) -> float:
         if self.sigma is not None:
             return float(self.sigma)
-        span = self.high - self.low
+        if self.kind == "int":
+            span_q = Fraction(self.high) - Fraction(self.low)
+            if span_q <= 0:
+                return 0.0
+            try:
+                val = float(span_q / 10)
+            except OverflowError as exc:
+                raise SearchSpaceError(
+                    f"Dimension '{self.name}' default sigma overflows float; specify an explicit finite sigma."
+                ) from exc
+            if not math.isfinite(val):
+                raise SearchSpaceError(
+                    f"Dimension '{self.name}' default sigma overflows float; specify an explicit finite sigma."
+                )
+            return val
+        span = float(self.high - self.low)
         return span / 10.0 if span > 0 else 0.0
 
     def sample_value(self, rng: random.Random) -> int | float:
         if self.kind == "int":
-            if self.step is not None and self.step > 1:
-                levels = int(math.floor((self.high - self.low) / self.step)) + 1
-                raw: float = self.low + rng.randrange(levels) * self.step
-            else:
-                raw = float(rng.randint(int(math.ceil(self.low)), int(math.floor(self.high))))
-        else:
-            raw = rng.uniform(self.low, self.high)
-        return self.coerce(raw)
+            lo_i = self.low if isinstance(self.low, int) else int(math.ceil(self.low))
+            hi_i = self.high if isinstance(self.high, int) else int(math.floor(self.high))
+            if self.step is not None:
+                if isinstance(self.low, int) and isinstance(self.step, int):
+                    levels = max(1, ((hi_i - self.low) // self.step) + 1)
+                    return self.low + rng.randrange(levels) * self.step
+                k_min, k_max = self._step_range(0.0)
+                if k_min <= k_max:
+                    return self._step_image(rng.randint(k_min, k_max))
+            return rng.randint(lo_i, hi_i)
+        raw_f = rng.uniform(float(self.low), float(self.high))
+        return self._coerce_in_bounds(raw_f)
 
     def describe(self) -> dict[str, Any]:
+        def _serialize_bound(val: Any) -> Any:
+            if isinstance(val, Fraction):
+                return f"{val.numerator}/{val.denominator}"
+            return val
+
         return {
             "name": self.name,
             "spec_path": self.spec_path,
-            "low": self.low,
-            "high": self.high,
+            "low": _serialize_bound(self.low),
+            "high": _serialize_bound(self.high),
             "kind": self.kind,
-            "step": self.step,
+            "step": _serialize_bound(self.step),
             "decimals": self.decimals,
             "sigma": self.sigma,
-            "default": self.default,
+            "default": _serialize_bound(self.default),
             "runtime": self.runtime,
             "description": self.description,
         }
@@ -343,9 +809,9 @@ def _apply_staging_offsets(
         "z": destination_z,
     }
     if lateral_dimension is not None:
-        controller_params[LATERAL_OFFSET_ANNOTATION] = lateral_dimension.coerce(lateral_value)
+        controller_params[LATERAL_OFFSET_ANNOTATION] = lateral_dimension._coerce_in_bounds(lateral_value)
     if longitudinal_dimension is not None:
-        controller_params[LONGITUDINAL_OFFSET_ANNOTATION] = longitudinal_dimension.coerce(longitudinal_value)
+        controller_params[LONGITUDINAL_OFFSET_ANNOTATION] = longitudinal_dimension._coerce_in_bounds(longitudinal_value)
 
 
 def _read_lateral_offset(payload: Mapping[str, Any], dimension: SearchDimension) -> int | float | None:
@@ -355,7 +821,7 @@ def _read_lateral_offset(payload: Mapping[str, Any], dimension: SearchDimension)
     annotation = controller_params.get(LATERAL_OFFSET_ANNOTATION)
     if annotation is not None:
         try:
-            return dimension.coerce(annotation)
+            return dimension._coerce_in_bounds(annotation) if dimension.in_bounds(annotation) else dimension.coerce(annotation)
         except SearchSpaceError:
             return None
     try:
@@ -364,7 +830,7 @@ def _read_lateral_offset(payload: Mapping[str, Any], dimension: SearchDimension)
         return None
     if norm <= 1e-6:
         return None
-    return dimension.coerce(norm)
+    return dimension._coerce_in_bounds(norm) if dimension.in_bounds(norm) else dimension.coerce(norm)
 
 
 def _read_longitudinal_offset(payload: Mapping[str, Any], dimension: SearchDimension) -> int | float | None:
@@ -374,7 +840,7 @@ def _read_longitudinal_offset(payload: Mapping[str, Any], dimension: SearchDimen
     annotation = controller_params.get(LONGITUDINAL_OFFSET_ANNOTATION)
     if annotation is not None:
         try:
-            return dimension.coerce(annotation)
+            return dimension._coerce_in_bounds(annotation) if dimension.in_bounds(annotation) else dimension.coerce(annotation)
         except SearchSpaceError:
             return None
     try:
@@ -384,7 +850,8 @@ def _read_longitudinal_offset(payload: Mapping[str, Any], dimension: SearchDimen
         return None
     delta_x = float(spawn_location["x"]) - anchor["x"]
     delta_y = float(spawn_location["y"]) - anchor["y"]
-    return dimension.coerce(delta_x * forward[0] + delta_y * forward[1])
+    proj = delta_x * forward[0] + delta_y * forward[1]
+    return dimension._coerce_in_bounds(proj) if dimension.in_bounds(proj) else dimension.coerce(proj)
 
 
 class SearchSpace:
@@ -397,7 +864,16 @@ class SearchSpace:
         names = [dimension.name for dimension in self._dimensions]
         if len(set(names)) != len(names):
             raise SearchSpaceError(f"Search dimension names must be unique; got {names}.")
-        self.name = str(name)
+        if seed is not None:
+            if isinstance(seed, bool) or not isinstance(seed, int):
+                raise SearchSpaceError(f"Search space seed must be an integer or None, got {_safe_repr(seed)}.")
+            try:
+                str(seed)
+            except ValueError as exc:
+                raise SearchSpaceError("Search space seed exceeds integer string serialization limit.") from exc
+        if not isinstance(name, str):
+            raise SearchSpaceError(f"Search space name must be a string, got {_safe_repr(name)}.")
+        self.name = name
         self.seed = seed
         self._rng = random.Random(seed)
 
@@ -411,7 +887,7 @@ class SearchSpace:
         for dimension in self._dimensions:
             if dimension.name == name:
                 return dimension
-        raise SearchSpaceError(f"Unknown search dimension '{name}'.")
+        raise SearchSpaceError(f"Unknown search dimension {_safe_repr(name)}.")
 
     def __len__(self) -> int:
         return len(self._dimensions)
@@ -428,24 +904,35 @@ class SearchSpace:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "SearchSpace":
-        dimensions = [
-            SearchDimension(
-                name=str(item["name"]),
-                spec_path=str(item["spec_path"]),
-                low=float(item["low"]),
-                high=float(item["high"]),
-                kind=str(item.get("kind", "float")),
-                step=float(item["step"]) if item.get("step") is not None else None,
-                decimals=int(item.get("decimals", 3)),
-                sigma=float(item["sigma"]) if item.get("sigma") is not None else None,
-                default=float(item["default"]) if item.get("default") is not None else None,
-                runtime=str(item.get("runtime", "live")),
-                description=str(item.get("description", "")),
+        if not isinstance(payload, Mapping):
+            raise SearchSpaceError(f"Expected a mapping for search space payload, got {type(payload).__name__}.")
+        raw_dims = payload.get("dimensions")
+        if not isinstance(raw_dims, Sequence) or isinstance(raw_dims, (str, bytes)):
+            raise SearchSpaceError("Search space payload must provide a sequence of dimensions.")
+        dimensions: list[SearchDimension] = []
+        for item in raw_dims:
+            if not isinstance(item, Mapping):
+                raise SearchSpaceError(f"Expected a mapping for search dimension, got {type(item).__name__}.")
+            for req in ("name", "spec_path", "low", "high"):
+                if req not in item:
+                    raise SearchSpaceError(f"Search dimension is missing required field '{req}'.")
+            dimensions.append(
+                SearchDimension(
+                    name=item["name"],
+                    spec_path=item["spec_path"],
+                    low=item["low"],
+                    high=item["high"],
+                    kind=item.get("kind", "float"),
+                    step=item.get("step"),
+                    decimals=item.get("decimals", 3),
+                    sigma=item.get("sigma"),
+                    default=item.get("default"),
+                    runtime=item.get("runtime", "live"),
+                    description=item.get("description", ""),
+                )
             )
-            for item in payload["dimensions"]
-        ]
         seed = payload.get("seed")
-        return cls(dimensions, name=str(payload.get("name", "campaign")), seed=int(seed) if seed is not None else None)
+        return cls(dimensions, name=payload.get("name", "campaign"), seed=seed)
 
     def sample(self, rng: random.Random | None = None) -> SearchCandidate:
         active_rng = self._rng if rng is None else rng
@@ -464,39 +951,88 @@ class SearchSpace:
             raise SearchSpaceError(f"Expected a mapping of dimension values, got {type(values).__name__}.")
         expected = set(self.names())
         missing = sorted(expected - set(values.keys()))
-        extra = sorted(set(values.keys()) - expected)
+        extra = sorted(_safe_repr(k) for k in (set(values.keys()) - expected))
         if missing:
             raise SearchSpaceError(f"Candidate is missing dimensions: {', '.join(missing)}.")
         if extra:
             raise SearchSpaceError(f"Candidate has unknown dimensions: {', '.join(extra)}.")
         coerced: dict[str, int | float] = {}
         for dimension in self._dimensions:
-            dimension.validate(values[dimension.name])
-            coerced[dimension.name] = dimension.coerce(values[dimension.name])
+            raw_val = values[dimension.name]
+            dimension.validate(raw_val)
+            coerced_val = dimension._coerce_in_bounds(raw_val)
+            dimension.validate(coerced_val)
+            coerced[dimension.name] = coerced_val
         return SearchCandidate(coerced)
 
     def clamp(self, values: Mapping[str, Any]) -> SearchCandidate:
         if not isinstance(values, Mapping):
             raise SearchSpaceError(f"Expected a mapping of dimension values, got {type(values).__name__}.")
         expected = set(self.names())
-        extra = sorted(set(values.keys()) - expected)
+        extra = sorted(_safe_repr(k) for k in (set(values.keys()) - expected))
         if extra:
             raise SearchSpaceError(f"Candidate has unknown dimensions: {', '.join(extra)}.")
         coerced: dict[str, int | float] = {}
         for dimension in self._dimensions:
-            raw = values.get(dimension.name, dimension.missing_value())
+            raw = values[dimension.name] if dimension.name in values else dimension.missing_value()
+            if isinstance(raw, bool):
+                raise SearchSpaceError(f"Dimension '{dimension.name}' expects a number, got {_safe_repr(raw)}.")
+            if dimension.kind == "int":
+                if isinstance(raw, (int, Fraction)):
+                    coerced[dimension.name] = dimension._coerce_in_bounds(raw)
+                    continue
+                if isinstance(raw, Decimal):
+                    coerced[dimension.name] = (
+                        dimension._coerce_in_bounds(raw) if raw.is_finite() else dimension.missing_value()
+                    )
+                    continue
+                if isinstance(raw, str):
+                    text = raw.strip()
+                    if "/" in text:
+                        coerced[dimension.name] = dimension._coerce_in_bounds(_to_exact_fraction(text, dimension.name))
+                        continue
+                    try:
+                        dec_val = Decimal(text)
+                    except InvalidOperation as exc:
+                        raise SearchSpaceError(
+                            f"Dimension '{dimension.name}' expects a number, got {_safe_repr(raw)}."
+                        ) from exc
+                    coerced[dimension.name] = (
+                        dimension._coerce_in_bounds(dec_val) if dec_val.is_finite() else dimension.missing_value()
+                    )
+                    continue
+                try:
+                    numeric = float(raw)
+                except (TypeError, ValueError, OverflowError) as exc:
+                    raise SearchSpaceError(f"Dimension '{dimension.name}' expects a number, got {_safe_repr(raw)}.") from exc
+                if not math.isfinite(numeric):
+                    coerced[dimension.name] = dimension.missing_value()
+                else:
+                    coerced[dimension.name] = dimension._coerce_in_bounds(numeric)
+                continue
             try:
                 numeric = float(raw)
-            except (TypeError, ValueError) as exc:
-                raise SearchSpaceError(f"Dimension '{dimension.name}' expects a number, got {raw!r}.") from exc
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise SearchSpaceError(f"Dimension '{dimension.name}' expects a number, got {_safe_repr(raw)}.") from exc
             if not math.isfinite(numeric):
                 numeric = float(dimension.missing_value())
-            coerced[dimension.name] = dimension.coerce(min(max(numeric, dimension.low), dimension.high))
+            bounded = min(max(numeric, float(dimension.low)), float(dimension.high))
+            coerced[dimension.name] = dimension._coerce_in_bounds(bounded)
         return SearchCandidate(coerced)
 
     def key(self, candidate: SearchCandidate | Mapping[str, Any]) -> tuple[int | float, ...]:
+        """Grid-coerced candidate deduplication key within this search space.
+
+        This is neither full scenario identity nor observed-behaviour identity;
+        scenario_quality provides separate input comparisons for offline analysis.
+        """
         values = candidate.values if isinstance(candidate, SearchCandidate) else candidate
-        return tuple(self.dimension(name).coerce(values[name]) for name in self.names())
+        out: list[int | float] = []
+        for name in self.names():
+            dim = self.dimension(name)
+            raw = values[name]
+            out.append(dim._coerce_in_bounds(raw) if dim.in_bounds(raw) else dim.coerce(raw))
+        return tuple(out)
 
     def apply_to_payload(self, payload: Mapping[str, Any], candidate: SearchCandidate | Mapping[str, Any]) -> dict[str, Any]:
         validated = self.validate(candidate.values if isinstance(candidate, SearchCandidate) else candidate)
@@ -544,7 +1080,9 @@ class SearchSpace:
                     return None
                 values[dimension.name] = dimension.missing_value()
                 continue
-            values[dimension.name] = dimension.coerce(raw)
+            values[dimension.name] = (
+                dimension._coerce_in_bounds(raw) if dimension.in_bounds(raw) else dimension.coerce(raw)
+            )
         return SearchCandidate(values)
 
 
@@ -624,10 +1162,10 @@ def make_campaign_space(*, name: str = "campaign-v2", seed: int | None = None) -
 def make_legacy_space(
     *,
     spec_path: str = "controller_params.trigger_radius_m",
-    low: float = 5.0,
-    high: float = 35.0,
+    low: int | float = 5.0,
+    high: int | float = 35.0,
     kind: str = "float",
-    step: float | None = None,
+    step: int | float | None = None,
     decimals: int = 2,
     sigma: float = 4.0,
     seed: int | None = None,
@@ -635,13 +1173,13 @@ def make_legacy_space(
     """The pilot's one-dimensional ``trigger_radius_m`` space."""
     dimension = SearchDimension(
         name="trigger_radius_m",
-        spec_path=str(spec_path),
-        low=float(low),
-        high=float(high),
-        kind=str(kind),
-        step=float(step) if step is not None else None,
-        decimals=int(decimals),
-        sigma=float(sigma),
+        spec_path=spec_path,
+        low=low,
+        high=high,
+        kind=kind,
+        step=step,
+        decimals=decimals,
+        sigma=sigma,
         default=None,
         runtime="live",
         description="Legacy pilot dimension; reproduces archived candidate values for a fixed seed.",

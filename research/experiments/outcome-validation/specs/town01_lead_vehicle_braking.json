@@ -1,0 +1,36 @@
+{
+  "scenario_id": "val_town01_lead_vehicle_braking",
+  "town": "Town01",
+  "weather_preset": "ClearNoon",
+  "ego_spawn_index": 0,
+  "goal_spawn_index": 82,
+  "description": "Native CARLA Town01 lead-vehicle braking interaction family (verified Town01 coordinates; not SCTrans).",
+  "max_ticks": 250,
+  "npc_vehicle_count": 0,
+  "walker_count": 0,
+  "controller": "lead_vehicle_braking",
+  "controller_params": {
+    "blueprint_filter": "vehicle.*",
+    "pre_brake_throttle": 0.3,
+    "post_trigger_brake": 1.0,
+    "trigger_radius_m": 8.0,
+    "release_after_s": 3.0,
+    "spawn_transform": {
+      "location": {
+        "x": 334.71923828125,
+        "y": 299.1587219238281,
+        "z": 0.3
+      },
+      "rotation": {
+        "pitch": 0.0,
+        "yaw": 90.03459930419922,
+        "roll": 0.0
+      }
+    },
+    "trigger_location": {
+      "x": 334.71923828125,
+      "y": 299.1587219238281,
+      "z": 0.0
+    }
+  }
+}

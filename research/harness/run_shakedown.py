@@ -65,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--debug-viewer-width", type=int, default=960)
     parser.add_argument("--debug-viewer-height", type=int, default=540)
     parser.add_argument("--debug-topdown-height", type=float, default=35.0)
+    parser.add_argument("--outcome-profile", type=Path, default=None)
+    parser.add_argument("--outcome-evidence-output", type=Path, default=None)
+    parser.add_argument("--outcome-schema", type=int, choices=(1, 2), default=2)
+    parser.add_argument("--enable-outcome-capture", action="store_true")
+    parser.add_argument("--no-lane-invasion-sensor", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -101,6 +106,13 @@ def main() -> None:
     config.agent.config_path = args.agent_config
     config.run.dry_run = args.dry_run
     config.run.startup_hold_ticks = args.startup_hold_ticks
+    config.sensors.attach_lane_invasion_sensor = not args.no_lane_invasion_sensor
+    config.outcomes.schema_version = args.outcome_schema
+    config.outcomes.profile_path = args.outcome_profile
+    config.outcomes.evidence_output_dir = args.outcome_evidence_output
+    config.outcomes.enabled = bool(
+        args.enable_outcome_capture or args.outcome_evidence_output is not None or args.outcome_profile is not None
+    )
 
     observers = []
     if args.coverage_observer:
@@ -152,7 +164,7 @@ def main() -> None:
 
     runner = HarnessRunner(config, observers=observers or None)
     result = runner.run(scenario)
-    print(json.dumps(result.to_dict(), indent=2))
+    print(json.dumps(result.to_dict(), indent=2, allow_nan=False))
     # Some agent stacks (e.g., PCLA/TransFuser) leave non-joinable worker
     # threads that abort the interpreter during teardown after all results
     # have been written. Exit explicitly once the artifacts are on disk.

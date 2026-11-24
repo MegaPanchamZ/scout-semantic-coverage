@@ -1,4 +1,4 @@
-"""Tests for the safety-outcome layer (oracle evidence + log classification).
+"""Historical schema-1 regression tests (oracle evidence + legacy classification).
 
 No live CARLA is required: the oracle tests use small fakes that satisfy the
 CARLA API shape it reads.
@@ -16,7 +16,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from research.harness.oracles import SafetyOracle, SafetyThresholds  # noqa: E402
-from research.harness.safety_outcomes import (  # noqa: E402
+from research.harness.legacy_outcomes import (  # noqa: E402
     OUTCOME_NAMES,
     OutcomeThresholds,
     classify_run,

@@ -392,3 +392,127 @@ def test_slow_crossing_credited_with_50_tick_history(tmp_path: Path):
 
     assert "crossing_path" not in set(narrow_result.metadata["semantic"]["covered_predicates"])
     assert len(narrow_frames[-1]["nearby_actors"][0]["waypoint_history"]) == 10
+
+
+def test_semantic_observer_preserves_sim_frame_time_and_actor_roles_without_changing_signatures(tmp_path: Path):
+    fake_map = build_two_way_road()
+    ego = FakeActor(1, "vehicle.tesla.model3", x=1.5, y=0.0, yaw=90.0, speed=5.0)
+    lead = FakeActor(2, "vehicle.tesla.model3", x=1.5, y=10.0, yaw=90.0, speed=5.0)
+    world = FakeWorld(fake_map, [ego, lead])
+
+    observer = SemanticObserver(
+        SemanticObserverConfig(
+            source="heuristic",
+            stream_output_dir=tmp_path / "semantic",
+            trace_output_dir=tmp_path / "semantic",
+            stream_every_ticks=1,
+            nearby_actor_radius_m=50.0,
+        )
+    )
+    scenario = _scenario()
+    context: dict = {
+        "world": world,
+        "ego_vehicle": ego,
+        "scenario": scenario,
+        "actor_roles": {1: "ego", 2: "lead_vehicle"},
+    }
+    observer.on_run_start(scenario, context)
+    context["sim_frame"] = 42
+    context["sim_time_s"] = 4.2
+    context["telemetry"] = _telemetry(0, speed=5.0)
+    observer.on_tick(0, context)
+    result = RunResult(
+        scenario_id=scenario.scenario_id,
+        town=scenario.town,
+        agent_kind="test",
+        succeeded=True,
+        dry_run=False,
+        ticks_executed=1,
+        reached_goal=False,
+        terminated_by_collision=False,
+        collision_count=0,
+    )
+    observer.on_run_end(result, context)
+
+    trace = json.loads(Path(result.metadata["semantic"]["trace_dump_path"]).read_text(encoding="utf-8"))
+    assert trace[0]["sim_frame"] == 42
+    assert trace[0]["sim_time_s"] == 4.2
+    same_lane_fact = next(f for f in trace[0]["predicates"] if f["predicate"] == "same_lane")
+    assert same_lane_fact["signature"] == "same_lane(vehicle,ego)"
+    assert same_lane_fact["actor_ids"] == ["2", "1"]
+    assert same_lane_fact["actor_roles"] == ["lead_vehicle", "ego"]
+    assert same_lane_fact["sim_frame"] == 42
+    assert same_lane_fact["sim_time_s"] == 4.2
+
+
+def test_semantic_observer_jaywalker_and_tie_merge_preserve_actor_ids_and_roles(tmp_path):
+    fake_map = build_two_way_road()
+    ego = FakeActor(1, "vehicle.tesla.model3", x=1.5, y=0.0, yaw=90.0)
+    # Two same-lane vehicles at identical position create a tie on same_lane(vehicle,ego)
+    v1 = FakeActor(2, "vehicle.tesla.model3", x=1.5, y=10.0, yaw=90.0)
+    v2 = FakeActor(3, "vehicle.tesla.model3", x=1.5, y=12.0, yaw=90.0)
+    jay = FakeActor(9, "walker.pedestrian.0001", x=1.5, y=6.0, yaw=0.0, speed=1.5)
+    world = FakeWorld(fake_map, [ego, v1, v2, jay])
+
+    config = SemanticObserverConfig(
+        source="heuristic",
+        stream_output_dir=tmp_path / "semantic",
+        trace_output_dir=tmp_path / "semantic",
+        stream_every_ticks=1,
+        nearby_actor_radius_m=50.0,
+    )
+    observer = SemanticObserver(config)
+    scenario = _scenario()
+    context: dict = {
+        "world": world,
+        "ego_vehicle": ego,
+        "scenario": scenario,
+        "run_id": "run-sem-99",
+        "actor_roles": {1: "ego", 2: "lead_1", 3: "lead_2", 9: "pedestrian_subject"},
+        "jaywalker": jay,
+        "jaywalker_active": True,
+        "threshold_adversary_kind": "walker",
+        "threshold_adversary": jay,
+        "threshold_adversary_active": True,
+        "threshold_adversary_triggered": True,
+        "threshold_trigger_distance_m": 6.0,
+        "sim_frame": 10,
+        "sim_time_s": 1.0,
+    }
+    observer.on_run_start(scenario, context)
+    context["telemetry"] = _telemetry(0, speed=5.0)
+    observer.on_tick(0, context)
+    result = RunResult(
+        scenario_id=scenario.scenario_id,
+        town=scenario.town,
+        agent_kind="test",
+        succeeded=True,
+        dry_run=False,
+        ticks_executed=1,
+        reached_goal=False,
+        terminated_by_collision=False,
+        collision_count=0,
+    )
+    observer.on_run_end(result, context)
+
+    trace = json.loads(Path(result.metadata["semantic"]["trace_dump_path"]).read_text(encoding="utf-8"))
+    assert trace[0]["run_id"] == "run-sem-99"
+    same_lane_facts = [f for f in trace[0]["predicates"] if f["signature"] == "same_lane(vehicle,ego)"]
+    # Separate vehicles keep distinct per-actor facts (never cross-attributing roles)
+    by_pair = {tuple(f["actor_ids"]): f["actor_roles"] for f in same_lane_facts}
+    assert by_pair[("2", "1")] == ["lead_1", "ego"]
+    assert by_pair[("3", "1")] == ["lead_2", "ego"]
+    jay_fact = next(f for f in trace[0]["predicates"] if f["predicate"] == "jaywalking")
+    assert "9" in jay_fact["actor_ids"]
+    assert "pedestrian_subject" in jay_fact["actor_roles"]
+    assert jay_fact["sim_frame"] == 10 and jay_fact["sim_time_s"] == 1.0
+
+    # Higher-confidence fact for actor A must NOT overwrite actor B or steal actor B's role
+    merged = SemanticObserver._merge_predicates([
+        {"signature": "in_front_of(pedestrian,ego)", "confidence": 0.80, "actor_ids": ["9", "1"], "actor_roles": ["pedestrian_subject", "ego"]},
+        {"signature": "in_front_of(pedestrian,ego)", "confidence": 0.90, "actor_ids": ["99", "1"]},
+    ])
+    assert len(merged) == 2
+    by_ids = {tuple(m["actor_ids"]): m for m in merged}
+    assert by_ids[("9", "1")]["actor_roles"] == ["pedestrian_subject", "ego"]
+    assert "actor_roles" not in by_ids[("99", "1")]

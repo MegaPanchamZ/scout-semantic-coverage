@@ -1,7 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+import math
 from typing import Any
+
+
+def _strict_json_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(k): _strict_json_value(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_strict_json_value(v) for v in value]
+    if isinstance(value, tuple):
+        return [_strict_json_value(v) for v in value]
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    return value
 
 
 @dataclass(slots=True)
@@ -11,6 +24,10 @@ class CollisionEvent:
     actor_type: str
     intensity: float
     injected_actor: bool = False
+    timestamp_s: float | None = None
+    impulse_vector: tuple[float, float, float] | None = None
+    phase: str = "evaluation"
+    actor_role: str | None = None
 
 
 @dataclass(slots=True)
@@ -20,7 +37,7 @@ class SafetyMetrics:
     Schema 2 keeps the original four fields and adds the signals needed to
     evaluate unsafe behaviour beyond collision.  These are *evidence*, not
     classified outcomes: the named outcomes and their thresholds live in
-    ``research/harness/safety_outcomes.py``.
+    ``research/harness/legacy_outcomes.py``.
     """
 
     schema_version: int = 2
@@ -55,7 +72,7 @@ class ScenarioSpec:
     controller_params: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return _strict_json_value(asdict(self))
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "ScenarioSpec":
@@ -89,6 +106,13 @@ class RunResult:
     safety_metrics: SafetyMetrics = field(default_factory=SafetyMetrics)
     notes: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    run_id: str | None = None
+    execution_status: str | None = None
+    termination_reason: str | None = None
+    observed_duration_s: float | None = None
+    outcome_path: str | None = None
+    capture_manifest_path: str | None = None
+    errors: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return _strict_json_value(asdict(self))

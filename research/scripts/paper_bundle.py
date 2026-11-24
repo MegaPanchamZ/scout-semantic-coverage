@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from research.harness.safety_outcomes import OUTCOME_NAMES, classify_run  # noqa: E402
+from research.harness.legacy_outcomes import OUTCOME_NAMES, classify_run  # noqa: E402
 
 POLICIES = ("semantic", "random", "lsa", "kmnc")
 POLICY_LABEL = {"semantic": "SCOUT", "random": "Random", "lsa": "LSA", "kmnc": "KMNC"}

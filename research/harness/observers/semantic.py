@@ -219,27 +219,49 @@ class SemanticObserver:
             frame_predicates.extend(self._infer_jaywalker_predicates(ego_vehicle, jaywalker, context))
 
         if occluder is not None and self._is_alive(occluder):
-            frame_predicates.extend(self._infer_occluder_predicates(ego_vehicle, occluder))
+            frame_predicates.extend(self._infer_occluder_predicates(ego_vehicle, occluder, context))
 
         if scan:
-            frame_predicates.extend(self._infer_lane_relation_predicates(scan))
+            frame_predicates.extend(self._infer_lane_relation_predicates(scan, context))
 
         if collision_oracle is not None and collision_oracle.events:
             latest = collision_oracle.events[-1]
             if self._last_collision_frame != latest.frame:
                 self._last_collision_frame = latest.frame
+                roles = context.get("actor_roles") or {}
+                other_role = roles.get(int(latest.actor_id)) if isinstance(roles, dict) else None
                 frame_predicates.append(
                     {
                         "predicate": "colliding",
                         "signature": f"colliding(ego,{latest.actor_type})",
                         "entities": ["ego", latest.actor_type],
                         "confidence": 1.0,
+                        "sim_frame": int(latest.frame),
+                        "sim_time_s": latest.timestamp_s if latest.timestamp_s is not None else context.get("sim_time_s"),
+                        "actor_ids": [str(getattr(ego_vehicle, "id", "ego")), str(latest.actor_id)],
+                        "actor_roles": ["ego", other_role] if other_role else ["ego"],
+                        "outcome_derived": True,
                     }
                 )
 
+        sim_frame = context.get("sim_frame")
+        sim_time_s = context.get("sim_time_s")
+        for fact in frame_predicates:
+            if sim_frame is not None and "sim_frame" not in fact:
+                fact["sim_frame"] = int(sim_frame)
+            if sim_time_s is not None and "sim_time_s" not in fact:
+                fact["sim_time_s"] = float(sim_time_s)
+
         frame_predicates = self._merge_predicates(frame_predicates)
         if frame_predicates:
-            self._trace.append({"tick": frame_id, "predicates": frame_predicates})
+            entry: dict[str, Any] = {"tick": frame_id, "predicates": frame_predicates}
+            if context.get("run_id") is not None:
+                entry["run_id"] = str(context["run_id"])
+            if sim_frame is not None:
+                entry["sim_frame"] = int(sim_frame)
+            if sim_time_s is not None:
+                entry["sim_time_s"] = float(sim_time_s)
+            self._trace.append(entry)
             for item in frame_predicates:
                 self._covered_predicates.add(item["predicate"])
                 self._covered_signatures.add(item["signature"])
@@ -314,38 +336,60 @@ class SemanticObserver:
         if distance is None:
             return predicates
 
+        roles = context.get("actor_roles") if isinstance(context, dict) else None
+        ego_id = str(getattr(ego_vehicle, "id", "ego"))
+        ped_id = str(getattr(jaywalker, "id", ""))
+        ped_role = roles.get(int(jaywalker.id)) if isinstance(roles, dict) and hasattr(jaywalker, "id") else None
+        sim_frame = context.get("sim_frame") if isinstance(context, dict) else None
+        sim_time_s = context.get("sim_time_s") if isinstance(context, dict) else None
+        ids_single = [ped_id] if ped_id else None
+        ids_pair = [ped_id, ego_id] if ped_id else None
+        roles_single = [ped_role] if ped_role else None
+        roles_pair = [ped_role, "ego"] if ped_role else None
+
         threshold_actor = context.get("threshold_adversary")
         threshold_is_pedestrian = context.get("threshold_adversary_kind") == "walker"
         threshold_active = bool(context.get("threshold_adversary_active", False))
         is_threshold_jaywalker = threshold_is_pedestrian and threshold_actor is jaywalker
 
         if is_threshold_jaywalker and not threshold_active:
-            predicates.append(self._make_fact("waiting", "pedestrian", None, 0.9))
+            predicates.append(self._make_fact("waiting", "pedestrian", None, 0.9, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_single, actor_roles=roles_single))
         else:
-            predicates.append(self._make_fact("jaywalking", "pedestrian", None, 0.9))
-        predicates.append(self._make_fact("on_road", "pedestrian", None, 0.7))
+            predicates.append(self._make_fact("jaywalking", "pedestrian", None, 0.9, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_single, actor_roles=roles_single))
+        predicates.append(self._make_fact("on_road", "pedestrian", None, 0.7, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_single, actor_roles=roles_single))
 
         if self._is_in_front_of(ego_vehicle, jaywalker):
-            predicates.append(self._make_fact("in_front_of", "pedestrian", "ego", 0.8))
+            predicates.append(self._make_fact("in_front_of", "pedestrian", "ego", 0.8, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
 
         if is_threshold_jaywalker and threshold_active:
-            predicates.append(self._make_fact("crossing_path", "pedestrian", "ego", 0.85))
+            predicates.append(self._make_fact("crossing_path", "pedestrian", "ego", 0.85, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
         elif distance < 12.0:
-            predicates.append(self._make_fact("crossing_path", "pedestrian", "ego", 0.75))
+            predicates.append(self._make_fact("crossing_path", "pedestrian", "ego", 0.75, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
 
         return predicates
 
-    def _infer_occluder_predicates(self, ego_vehicle: Any, occluder: Any) -> list[dict[str, Any]]:
+    def _infer_occluder_predicates(self, ego_vehicle: Any, occluder: Any, context: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         predicates: list[dict[str, Any]] = []
         distance = self._distance_between(ego_vehicle, occluder)
         if distance is None:
             return predicates
 
-        predicates.append(self._make_fact("occluded", self._actor_alias(occluder), None, 0.85))
+        roles = context.get("actor_roles") if isinstance(context, dict) else None
+        ego_id = str(getattr(ego_vehicle, "id", "ego"))
+        occ_id = str(getattr(occluder, "id", ""))
+        occ_role = roles.get(int(occluder.id)) if isinstance(roles, dict) and hasattr(occluder, "id") else None
+        sim_frame = context.get("sim_frame") if isinstance(context, dict) else None
+        sim_time_s = context.get("sim_time_s") if isinstance(context, dict) else None
+        ids_single = [occ_id] if occ_id else None
+        ids_pair = [occ_id, ego_id] if occ_id else None
+        roles_single = [occ_role] if occ_role else None
+        roles_pair = [occ_role, "ego"] if occ_role else None
+
+        predicates.append(self._make_fact("occluded", self._actor_alias(occluder), None, 0.85, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_single, actor_roles=roles_single))
         if self._is_in_front_of(ego_vehicle, occluder):
-            predicates.append(self._make_fact("in_front_of", self._actor_alias(occluder), "ego", 0.85))
+            predicates.append(self._make_fact("in_front_of", self._actor_alias(occluder), "ego", 0.85, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
         if distance < 18.0:
-            predicates.append(self._make_fact("obstructing", self._actor_alias(occluder), "ego", 0.8))
+            predicates.append(self._make_fact("obstructing", self._actor_alias(occluder), "ego", 0.8, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
         return predicates
 
     def _scan_nearby_actors(self, context: dict[str, Any], frame_id: int) -> list[NearbyActorState]:
@@ -564,58 +608,112 @@ class SemanticObserver:
             return crossing, True
         return False, False
 
-    def _infer_lane_relation_predicates(self, states: list[NearbyActorState]) -> list[dict[str, Any]]:
+    def _infer_lane_relation_predicates(
+        self,
+        states: list[NearbyActorState],
+        context: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         predicates: list[dict[str, Any]] = []
+        roles = context.get("actor_roles") if isinstance(context, dict) else None
+        ego_vehicle = context.get("ego_vehicle") if isinstance(context, dict) else None
+        ego_id = str(getattr(ego_vehicle, "id", "ego")) if ego_vehicle is not None else None
+        sim_frame = context.get("sim_frame") if isinstance(context, dict) else None
+        sim_time_s = context.get("sim_time_s") if isinstance(context, dict) else None
         for state in states:
             alias = self._actor_alias(state.actor)
+            actor_id = str(getattr(state.actor, "id", ""))
+            actor_role = roles.get(int(state.actor.id)) if isinstance(roles, dict) and hasattr(state.actor, "id") else None
+            ids_pair = [actor_id, ego_id] if (actor_id and ego_id) else ([actor_id] if actor_id else None)
+            ids_single = [actor_id] if actor_id else None
+            roles_pair = [actor_role, "ego"] if actor_role else None
+            roles_single = [actor_role] if actor_role else None
             if state.entry["is_in_front_of_ego"]:
-                predicates.append(self._make_fact("in_front_of", alias, "ego", 0.85))
+                predicates.append(self._make_fact("in_front_of", alias, "ego", 0.85, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
             if state.entry["same_road_as_ego"]:
-                predicates.append(self._make_fact("on_road", alias, None, 0.75))
+                predicates.append(self._make_fact("on_road", alias, None, 0.75, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_single, actor_roles=roles_single))
             if state.same_lane:
-                predicates.append(self._make_fact("same_lane", alias, "ego", 0.9))
+                predicates.append(self._make_fact("same_lane", alias, "ego", 0.9, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
             if state.adjacent_lane:
-                predicates.append(self._make_fact("adjacent_lane", alias, "ego", 0.85))
+                predicates.append(self._make_fact("adjacent_lane", alias, "ego", 0.85, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
             if state.oncoming and alias == "vehicle":
-                predicates.append(self._make_fact("oncoming", alias, "ego", 0.85))
+                predicates.append(self._make_fact("oncoming", alias, "ego", 0.85, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
             if state.lane_changed and alias == "vehicle":
-                predicates.append(self._make_fact("lane_changing", alias, None, 0.8))
+                predicates.append(self._make_fact("lane_changing", alias, None, 0.8, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_single, actor_roles=roles_single))
             if state.crossing_path:
-                predicates.append(self._make_fact("crossing_path", alias, "ego", 0.85))
+                predicates.append(self._make_fact("crossing_path", alias, "ego", 0.85, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
             elif not state.crossing_geometry_available and alias in ("pedestrian", "vehicle"):
                 entry = state.entry
                 if entry["is_in_front_of_ego"] and entry["distance_to_ego_m"] <= 12.0:
-                    predicates.append(self._make_fact("crossing_path", alias, "ego", 0.6))
+                    predicates.append(self._make_fact("crossing_path", alias, "ego", 0.6, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
             if state.same_lane and state.entry["is_in_front_of_ego"]:
-                predicates.append(self._make_fact("obstructing", alias, "ego", 0.9))
+                predicates.append(self._make_fact("obstructing", alias, "ego", 0.9, sim_frame=sim_frame, sim_time_s=sim_time_s, actor_ids=ids_pair, actor_roles=roles_pair))
         return predicates
 
     @staticmethod
     def _merge_predicates(predicates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        merged: dict[str, dict[str, Any]] = {}
-        order: list[str] = []
+        """Deduplicate by (signature, sorted actor_ids) without cross-actor role misattribution."""
+        merged: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = {}
+        order: list[tuple[str, tuple[str, ...]]] = []
         for fact in predicates:
             signature = fact["signature"]
-            if signature not in merged:
-                merged[signature] = fact
-                order.append(signature)
-            elif fact["confidence"] > merged[signature]["confidence"]:
-                merged[signature] = fact
-        return [merged[signature] for signature in order]
+            actor_ids = tuple(sorted(str(a) for a in (fact.get("actor_ids") or ()) if a))
+            key = (signature, actor_ids)
+            if key not in merged:
+                merged[key] = dict(fact)
+                order.append(key)
+            else:
+                cur = merged[key]
+                if fact["confidence"] > cur["confidence"]:
+                    winner = dict(fact)
+                    for meta_key in ("actor_roles", "sim_frame", "sim_time_s"):
+                        if meta_key not in winner and meta_key in cur:
+                            winner[meta_key] = cur[meta_key]
+                    merged[key] = winner
+                else:
+                    if "actor_roles" in fact:
+                        existing = list(cur.get("actor_roles") or [])
+                        for val in fact["actor_roles"]:
+                            if val not in existing:
+                                existing.append(val)
+                        cur["actor_roles"] = existing
+                    for meta_key in ("sim_frame", "sim_time_s"):
+                        if meta_key not in cur and meta_key in fact:
+                            cur[meta_key] = fact[meta_key]
+        return [merged[key] for key in order]
 
-    def _make_fact(self, predicate: str, subject: str, obj: str | None, confidence: float) -> dict[str, Any]:
+    def _make_fact(
+        self,
+        predicate: str,
+        subject: str,
+        obj: str | None,
+        confidence: float,
+        *,
+        sim_frame: int | None = None,
+        sim_time_s: float | None = None,
+        actor_ids: list[str] | None = None,
+        actor_roles: list[str] | None = None,
+    ) -> dict[str, Any]:
         if obj is None:
             signature = f"{predicate}({subject})"
             entities = [subject]
         else:
             signature = f"{predicate}({subject},{obj})"
             entities = [subject, obj]
-        return {
+        fact: dict[str, Any] = {
             "predicate": predicate,
             "signature": signature,
             "entities": entities,
             "confidence": confidence,
         }
+        if sim_frame is not None:
+            fact["sim_frame"] = int(sim_frame)
+        if sim_time_s is not None:
+            fact["sim_time_s"] = float(sim_time_s)
+        if actor_ids:
+            fact["actor_ids"] = list(actor_ids)
+        if actor_roles:
+            fact["actor_roles"] = list(actor_roles)
+        return fact
 
     def _write_trace_dump(self, result: RunResult, output_dir: Path) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -754,6 +852,8 @@ class SemanticObserver:
         return {
             "schema_version": SEMANTIC_STREAM_SCHEMA_VERSION,
             "tick": int(frame_id),
+            **({"sim_frame": int(context["sim_frame"])} if context.get("sim_frame") is not None else {}),
+            **({"sim_time_s": float(context["sim_time_s"])} if context.get("sim_time_s") is not None else {}),
             "trigger_reason": trigger_reason,
             "scenario_id": scenario.scenario_id,
             "town": scenario.town,

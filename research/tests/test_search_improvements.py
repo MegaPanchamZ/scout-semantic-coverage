@@ -160,3 +160,44 @@ def test_hazard_policy_state_rejects_zero_fitness_with_positive_tiebreak():
     assert "pedestrian_crossing" not in st.template_elites
     assert st.adapt["target:hazard(other: pedestrian)"].scale > 1.0
 
+
+def test_criticality_v2_explicit_feedback_version_distinguishes_unavailable_from_safe():
+    import pytest
+    from baselines import _effective_gap_m, gap_fitness
+
+    # Missing v2 feedback returns None (never 0.0 safe)
+    assert criticality_score({}, feedback_version="v2_normalized") is None
+    assert _effective_gap_m({"min_gap_m": 1.0}, feedback_version="v2_normalized") is None
+    assert gap_fitness({"min_gap_m": 1.0}, feedback_version="v2_normalized") is None
+
+    # Complete negative v2 observation yields 0.0
+    safe_v2 = {
+        "outcome_v2": {
+            "schema_version": 2,
+            "execution_status": "completed",
+            "categories": {
+                "safety": {"collision": {"status": "absent"}, "near_miss": {"status": "absent"}},
+                "behaviour": {"close_proximity": {"status": "absent"}},
+            },
+            "events": [],
+            "provenance": {"interaction_opportunities": []},
+        }
+    }
+    assert criticality_score(safe_v2, feedback_version="v2_normalized") == 0.0
+
+    # V2 collision yields 2.0 and COLLISION_FITNESS
+    col_v2 = {
+        "outcome_v2": {
+            "schema_version": 2,
+            "execution_status": "completed",
+            "categories": {"safety": {"collision": {"status": "present"}}},
+            "events": [],
+            "provenance": {},
+        }
+    }
+    assert criticality_score(col_v2, feedback_version="v2_normalized") == 2.0
+    assert gap_fitness(col_v2, feedback_version="v2_normalized") == 1000.0
+
+    with pytest.raises(ValueError):
+        criticality_score({}, feedback_version="unknown_v99")
+

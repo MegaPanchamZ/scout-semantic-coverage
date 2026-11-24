@@ -45,35 +45,108 @@ CAUSAL_PARAMS = {
 }
 
 COLLISION_FITNESS = 1000.0
+FEEDBACK_VERSIONS = ("legacy_v1", "v2_normalized")
 
 
-def _effective_gap_m(row: dict) -> float | None:
-    """Extract minimum ego-to-actor distance in metres from either min_gap_m or safety_raw/safety_metrics."""
-    gap = row.get("min_gap_m")
-    if isinstance(gap, (int, float)) and not isinstance(gap, bool) and math.isfinite(float(gap)):
-        return float(gap)
+def _finite_float(value) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        num = float(value)
+    except OverflowError:
+        return None
+    return num if math.isfinite(num) else None
+
+
+def _valid_executed_v2_outcome(row: dict) -> dict | None:
+    outcome = row.get("outcome_v2")
+    if not isinstance(outcome, dict) or outcome.get("schema_version") != 2:
+        return None
+    exec_status = outcome.get("execution_status")
+    if not isinstance(exec_status, str) or exec_status not in {"completed", "partial"}:
+        return None
+    return outcome
+
+
+def _v2_collision_status(row: dict) -> str | None:
+    outcome = _valid_executed_v2_outcome(row)
+    if outcome is None:
+        return None
+    cats = outcome.get("categories")
+    if not isinstance(cats, dict):
+        return None
+    safety = cats.get("safety")
+    if not isinstance(safety, dict):
+        return None
+    col = safety.get("collision")
+    if not isinstance(col, dict):
+        return None
+    st = col.get("status")
+    return st if isinstance(st, str) else None
+
+
+def _effective_gap_m(row: dict, *, feedback_version: str = "legacy_v1") -> float | None:
+    """Extract minimum ego-to-actor distance in metres.
+
+    ``legacy_v1`` reads ``min_gap_m`` or legacy ``safety_raw``/``safety_metrics``
+    centre distances. ``v2_normalized`` reads oriented footprint clearances from
+    schema-2 ``outcome_v2`` events/opportunities and never falls back to legacy
+    centre distances.
+    """
+    if feedback_version == "v2_normalized":
+        outcome = _valid_executed_v2_outcome(row)
+        if outcome is None:
+            return None
+        gaps: list[float] = []
+        raw_events = outcome.get("events")
+        if isinstance(raw_events, (list, tuple)):
+            for ev in raw_events:
+                if isinstance(ev, dict):
+                    meas = ev.get("measurements")
+                    g = _finite_float(meas.get("min_gap_m")) if isinstance(meas, dict) else None
+                    if g is not None:
+                        gaps.append(g)
+        prov = outcome.get("provenance")
+        raw_opps = prov.get("interaction_opportunities") if isinstance(prov, dict) else None
+        if isinstance(raw_opps, (list, tuple)):
+            for opp in raw_opps:
+                if isinstance(opp, dict):
+                    g = _finite_float(opp.get("min_gap_m"))
+                    if g is not None:
+                        gaps.append(g)
+        return min(gaps) if gaps else None
+    if feedback_version != "legacy_v1":
+        raise ValueError(f"Unsupported feedback_version: {feedback_version}")
+    gap = _finite_float(row.get("min_gap_m"))
+    if gap is not None:
+        return gap
     for src_key in ("safety_raw", "safety_metrics"):
         src = row.get(src_key)
         if isinstance(src, dict):
             dists = [
-                float(src[k])
+                g
                 for k in ("min_actor_distance_m", "min_pedestrian_distance_m", "min_vehicle_distance_m")
-                if isinstance(src.get(k), (int, float))
-                and not isinstance(src.get(k), bool)
-                and math.isfinite(float(src[k]))
+                for g in (_finite_float(src.get(k)),)
+                if g is not None
             ]
             if dists:
                 return min(dists)
     return None
 
 
-def gap_fitness(row: dict) -> float | None:
-    """Higher is closer to a safety violation. Collision with an injected actor is the optimum."""
+def _is_collision_row(row: dict, *, feedback_version: str = "legacy_v1") -> bool:
+    if feedback_version == "v2_normalized":
+        return _v2_collision_status(row) == "present"
+    return bool(row.get("terminated_by_collision") or (row.get("collision_count") or 0) > 0)
+
+
+def gap_fitness(row: dict, *, feedback_version: str = "legacy_v1") -> float | None:
+    """Higher is closer to a safety violation. Collision is the optimum; None if unavailable."""
     if row.get("run_error"):
         return None
-    if row.get("terminated_by_collision") or (row.get("collision_count") or 0) > 0:
+    if _is_collision_row(row, feedback_version=feedback_version):
         return COLLISION_FITNESS
-    gap = _effective_gap_m(row)
+    gap = _effective_gap_m(row, feedback_version=feedback_version)
     if gap is None:
         return None
     return -float(gap)
@@ -88,14 +161,14 @@ def _normalised(space, values: dict[str, float]) -> list[float]:
     return out
 
 
-def make_policy_state(policy: str, space: Any, base_cls: type):
+def make_policy_state(policy: str, space: Any, base_cls: type, *, feedback_version: str = "legacy_v1"):
     """Factory used by policy_search: the baselines subclass the supplied PolicyState so shared behaviour is unchanged."""
     if policy == "avfuzzer":
         return _make_avfuzzer(space, base_cls)
     if policy == "causal":
-        return _make_causal(space, base_cls)
+        return _make_causal(space, base_cls, feedback_version=feedback_version)
     if policy == "semantic_crit":
-        return _make_semantic_crit(space, base_cls)
+        return _make_semantic_crit(space, base_cls, feedback_version=feedback_version)
     return base_cls(policy, space)
 
 
@@ -184,12 +257,13 @@ def _make_avfuzzer(space, base_cls):
     return AVFuzzerState("avfuzzer", space)
 
 
-def _make_causal(space, base_cls):
+def _make_causal(space, base_cls, *, feedback_version: str = "legacy_v1"):
     P = CAUSAL_PARAMS
 
     class CausalFuzzerStyleState(base_cls):
         def __init__(self, policy, space):
             super().__init__(policy, space)
+            self.feedback_version = feedback_version
             self.archive: list[dict] = []                 # {x: normalised vector, values, risk, violation, edges, score}
             self.edges: set[tuple] = set()                # activated causal relations (parameter bins -> behaviour -> outcome)
 
@@ -198,10 +272,10 @@ def _make_causal(space, base_cls):
             k = P["bins_per_dim"]
             return tuple(min(int(x * k), k - 1) for x in xs)
 
-        def _behaviour(self, row):
+        def _behaviour(self, row, *, feedback_version: str | None = None):
             if row.get("reached_goal"):
                 return "completes"
-            gap = row.get("min_gap_m")
+            gap = _effective_gap_m(row, feedback_version=feedback_version or self.feedback_version)
             if gap is not None and gap < 3.0:
                 return "close_call"
             return "stalls_or_timeout"
@@ -209,9 +283,16 @@ def _make_causal(space, base_cls):
         def observe(self, values, fitness, tiebreak=None, row=None, **kw):
             if not values or fitness is None or row is None:
                 return
+            fb_ver = str(kw.get("feedback_version") or self.feedback_version)
+            risk = gap_fitness(row, feedback_version=fb_ver)
+            if fb_ver == "v2_normalized":
+                if risk is None:
+                    return
+                if _v2_collision_status(row) not in ("present", "absent"):
+                    return
             xs = _normalised(self.space, values)
-            beh = self._behaviour(row)
-            outcome = "violation" if (row.get("terminated_by_collision") or (row.get("collision_count") or 0) > 0) else "safe"
+            beh = self._behaviour(row, feedback_version=fb_ver)
+            outcome = "violation" if _is_collision_row(row, feedback_version=fb_ver) else "safe"
             bins = self._bins(xs)
             new_edges = set()
             for i, b in enumerate(bins):                  # relation: (dimension i, bin) -> behaviour -> outcome
@@ -219,7 +300,6 @@ def _make_causal(space, base_cls):
                 if e not in self.edges:
                     new_edges.add(e)
             self.edges |= new_edges
-            risk = gap_fitness(row)
             self.archive.append({"x": xs, "values": dict(values), "risk": float(risk if risk is not None else -50.0),
                                  "violation": outcome == "violation", "score": len(new_edges) + (2.0 if outcome == "violation" else 0.0)})
 
@@ -268,37 +348,41 @@ def _make_causal(space, base_cls):
 CRIT_EDGES = (0.0, 1.0, 3.0, 6.0)          # gap (m) bin edges: collision | <1 | 1-3 | 3-6 | >6
 
 
-def criticality_bin(row: dict) -> int:
-    if row.get("terminated_by_collision") or (row.get("collision_count") or 0) > 0:
+def criticality_bin(row: dict, *, feedback_version: str = "legacy_v1") -> int | None:
+    if _is_collision_row(row, feedback_version=feedback_version):
         return 0
-    gap = _effective_gap_m(row)
+    gap = _effective_gap_m(row, feedback_version=feedback_version)
     if gap is None:
-        return len(CRIT_EDGES)
+        return None if feedback_version == "v2_normalized" else len(CRIT_EDGES)
     for i, e in enumerate(CRIT_EDGES[1:], start=1):
         if gap < e:
             return i
     return len(CRIT_EDGES)
 
 
-def critical_pairs(row: dict) -> set[tuple]:
+def critical_pairs(row: dict, *, feedback_version: str = "legacy_v1") -> set[tuple]:
     """(semantic obligation/signature, criticality bin) pairs exercised by a run.
 
     Uses ``engine_run_obligations`` from the stated NuScenes oracle inventory when
     available, falling back to ``semantic_covered_signatures`` only when engine
     metrics are absent. A signature seen at bin ``b`` also covers all looser bins
-    ``k >= b`` (a closer encounter subsumes a looser one).
+    ``k >= b`` (a closer encounter subsumes a looser one). In ``v2_normalized``
+    mode, missing clearance returns an empty set rather than fabricating a bin.
     """
-    b = criticality_bin(row)
+    b = criticality_bin(row, feedback_version=feedback_version)
+    if b is None:
+        return set()
     sigs = row.get("engine_run_obligations")
     if sigs is None:
         sigs = row.get("semantic_covered_signatures") or []
     return {(s, k) for s in sigs for k in range(b, len(CRIT_EDGES) + 1)}
 
 
-def _make_semantic_crit(space, base_cls):
+def _make_semantic_crit(space, base_cls, *, feedback_version: str = "legacy_v1"):
     class SemanticCritState(base_cls):
         def __init__(self, policy, space):
             super().__init__(policy, space)
+            self.feedback_version = feedback_version
             self.covered: set[tuple] = set()
             self.best_pairs: set[tuple] = set()
             self.best_new = -1.0
@@ -307,15 +391,21 @@ def _make_semantic_crit(space, base_cls):
         def observe(self, values, fitness, tiebreak=None, row=None, **kw):
             if not values or row is None or row.get("run_error"):
                 return
+            fb_ver = str(kw.get("feedback_version") or self.feedback_version)
             if self.best_values is not None:
                 self.best_new = float(len(self.best_pairs - self.covered))
-            pairs = critical_pairs(row)
+            pairs = critical_pairs(row, feedback_version=fb_ver)
             new = float(len(pairs - self.covered))
             self.covered |= pairs
-            gap = gap_fitness(row)                      # higher = closer to a violation
+            gap = gap_fitness(row, feedback_version=fb_ver)  # higher = closer to a violation
             if gap is None:
                 from research.harness.criticality import criticality_score
-                gap = float(row.get("criticality", criticality_score(row)))
+                raw_crit = row.get("criticality") if "criticality" in row else criticality_score(row, feedback_version=fb_ver)
+                if raw_crit is None and fb_ver == "legacy_v1":
+                    raw_crit = criticality_score(row, feedback_version=fb_ver)
+                gap = float(raw_crit) if raw_crit is not None else None
+            if fb_ver == "v2_normalized" and gap is None and not pairs:
+                return
             gap_key = float(gap if gap is not None else -50.0)
             if (new, gap_key) > (self.best_new, self.best_gap_key):
                 self.best_new = new
