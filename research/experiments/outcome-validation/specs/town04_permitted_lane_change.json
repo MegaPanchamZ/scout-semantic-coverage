@@ -1,0 +1,13 @@
+{
+  "scenario_id": "val_town04_permitted_lane_change",
+  "town": "Town04",
+  "weather_preset": "ClearNoon",
+  "ego_spawn_index": 18,
+  "goal_spawn_index": 24,
+  "description": "Native CARLA Town04 multi-lane permitted broken-line lane change control (detector validation only).",
+  "max_ticks": 100,
+  "npc_vehicle_count": 0,
+  "walker_count": 0,
+  "controller": "route_only",
+  "controller_params": {}
+}

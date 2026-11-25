@@ -247,7 +247,7 @@ def test_all_validation_specs_build_valid_scenario_controllers():
     from research.harness.scenarios import load_scenario_spec
     specs_dir = VAL_SCRIPT.parent / "specs"
     specs = sorted(specs_dir.glob("*.json"))
-    assert len(specs) == 6
+    assert len(specs) == 9
     for sp in specs:
         scenario = load_scenario_spec(sp)
         controller = build_scenario_controller(scenario)

@@ -60,7 +60,7 @@
       "case_id": "lane_negative_permitted_broken_change",
       "family": "lane",
       "control_kind": "negative",
-      "spec": "specs/town01_lane_interaction.json",
+      "spec": "specs/town04_permitted_lane_change.json",
       "intended_roles": ["ego"],
       "expected": {"behaviour.lane_crossing": "present", "rules.illegal_lane_change": "absent"},
       "required_duration_s": 2.0
@@ -96,7 +96,7 @@
       "case_id": "red_light_negative_approach_stop",
       "family": "red_light",
       "control_kind": "negative",
-      "spec": "specs/town01_clear_baseline.json",
+      "spec": "specs/town01_red_light_approach.json",
       "intended_roles": ["ego"],
       "expected": {"rules.red_light_violation": "absent"},
       "required_duration_s": 2.0
@@ -105,7 +105,7 @@
       "case_id": "other_rules_positive_stop_sign_speeding_wrong_way",
       "family": "other_rules",
       "control_kind": "positive",
-      "spec": "specs/town01_clear_baseline.json",
+      "spec": "specs/town05_stop_sign_wrong_way.json",
       "intended_roles": ["ego"],
       "expected": {
         "rules.stop_sign_violation": "present",
@@ -140,7 +140,7 @@
       "case_id": "task_negative_legitimate_red_light_wait",
       "family": "task",
       "control_kind": "negative",
-      "spec": "specs/town01_clear_baseline.json",
+      "spec": "specs/town01_red_light_approach.json",
       "intended_roles": ["ego"],
       "expected": {"task.prolonged_immobilization": "present", "task.stuck": "absent", "task.no_progress": "absent"},
       "required_duration_s": 10.0

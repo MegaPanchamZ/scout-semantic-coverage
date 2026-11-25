@@ -163,6 +163,7 @@ class RoadContextIndex:
         self._route_points = tuple(route_points or ())
         self._rule_profile = dict(rule_profile or {})
         self._stop_sign_actors: list[Any] = []
+        self._traffic_light_actors: list[Any] = []
         self._last_traffic_light: Any | None = None
         self._prev_ego_lane: tuple[int, int] | None = None
         self._init_error: str | None = None
@@ -173,6 +174,8 @@ class RoadContextIndex:
                 tid = str(getattr(actor, "type_id", "")).lower()
                 if "stop" in tid and "traffic" in tid:
                     self._stop_sign_actors.append(actor)
+                elif "traffic_light" in tid and "traffic" in tid:
+                    self._traffic_light_actors.append(actor)
         except Exception as exc:
             self._init_error = f"road_context_init_failed:{type(exc).__name__}"
 
@@ -271,10 +274,30 @@ class RoadContextIndex:
 
         # Traffic light applicability & lane-matched stop-line crossing
         # Cache last active light across the trigger-box exit boundary so crossing on the exit tick is never dropped.
+        # Also detect same-lane approaching traffic-light stop lines within 10m ahead so vehicles stopping
+        # politely 1-6m before CARLA's narrow trigger box still register red-light approach/waiting context.
         try:
             if hasattr(ego_vehicle, "is_at_traffic_light") and hasattr(ego_vehicle, "get_traffic_light"):
                 at_tl = bool(ego_vehicle.is_at_traffic_light())
                 tl = ego_vehicle.get_traffic_light() if at_tl else None
+                if tl is None and allowed_lanes and self._traffic_light_actors:
+                    best_dist = float("inf")
+                    fwd_x, fwd_y = math.cos(ego_state.yaw_rad), math.sin(ego_state.yaw_rad)
+                    for cand in self._traffic_light_actors:
+                        cand_wps = cand.get_stop_waypoints() if hasattr(cand, "get_stop_waypoints") else []
+                        for swp in cand_wps:
+                            if (getattr(swp, "road_id", None), getattr(swp, "lane_id", None)) not in allowed_lanes:
+                                continue
+                            sloc = swp.transform.location
+                            dx = float(sloc.x) - ego_state.x
+                            dy = float(sloc.y) - ego_state.y
+                            along = dx * fwd_x + dy * fwd_y
+                            swp_yaw = math.radians(float(swp.transform.rotation.yaw))
+                            if -1.5 <= along <= 10.0 and math.cos(swp_yaw - ego_state.yaw_rad) >= 0.5:
+                                d = math.hypot(dx, dy)
+                                if d < best_dist:
+                                    best_dist = d
+                                    tl = cand
                 active_tl = tl if tl is not None else self._last_traffic_light
                 self._last_traffic_light = tl
                 if active_tl is not None:

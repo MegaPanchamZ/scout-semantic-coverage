@@ -615,3 +615,70 @@ def test_road_context_junction_boundary_crossing_and_rotated_line_negative():
     assert rc1.stop_line_applicable is True
     assert rc1.stop_line_crossed is True
     assert rc1.red_light_state == "red"
+
+
+def test_road_context_detects_approaching_same_lane_red_light_before_trigger_box():
+    from research.harness.outcome_models import ActorState
+    from research.harness.road_context import RoadContextIndex
+
+    same_lane_stop = SimpleNamespace(
+        road_id=19, lane_id=-1, lane_width=3.5, is_junction=False, lane_type="Driving", lane_change="None",
+        transform=_Transform(x=0.0, y=10.0, yaw=90.0),
+    )
+    other_lane_stop = SimpleNamespace(
+        road_id=19, lane_id=1, lane_width=3.5, is_junction=False, lane_type="Driving", lane_change="None",
+        transform=_Transform(x=3.5, y=10.0, yaw=-90.0),
+    )
+    tl_same = SimpleNamespace(
+        id=41, type_id="traffic.traffic_light",
+        get_state=lambda: "Red", get_stop_waypoints=lambda: [same_lane_stop],
+    )
+    tl_other = SimpleNamespace(
+        id=42, type_id="traffic.traffic_light",
+        get_state=lambda: "Green", get_stop_waypoints=lambda: [other_lane_stop],
+    )
+
+    class _ApproachMap:
+        def get_waypoint(self, loc, project_to_road=True, lane_type=None):
+            return SimpleNamespace(
+                road_id=19, lane_id=-1, lane_width=3.5, is_junction=False, lane_type="Driving", lane_change="None",
+                transform=_Transform(x=loc.x, y=loc.y, yaw=90.0),
+            )
+
+    world = SimpleNamespace(get_map=lambda: _ApproachMap(), get_actors=lambda: [tl_other, tl_same])
+    idx = RoadContextIndex(world)
+
+    # Farther than 10m behind stop line -> not applicable yet
+    ego_far = _FakeActor(1, "vehicle.tesla.model3", x=0.0, y=-5.0)
+    ego_far.is_at_traffic_light = lambda: False
+    ego_far.get_traffic_light = lambda: None
+    s_far = ActorState("1", "vehicle", 0.0, -5.0, 1.5707963267948966, 2.0, 1.0, 0.0, 0.0, 0.0, 1.5, role="ego")
+    rc_far, tc_far, _ = idx.sample(ego_far, s_far, None, ())
+    assert rc_far.stop_line_applicable is False
+    assert tc_far.red_light_stop is False
+
+    # Stopped 3.5m before stop line (front bumper 1.5m before line), outside CARLA's narrow trigger box
+    ego_v = _FakeActor(1, "vehicle.tesla.model3", x=0.0, y=6.5)
+    ego_v.is_at_traffic_light = lambda: False
+    ego_v.get_traffic_light = lambda: None
+    s0 = ActorState("1", "vehicle", 0.0, 6.5, 1.5707963267948966, 2.0, 1.0, 0.0, 0.0, 0.0, 1.5, role="ego")
+    rc0, tc0, _ = idx.sample(ego_v, s0, s_far, ())
+    assert rc0.stop_line_applicable is True
+    assert rc0.red_light_state == "red"
+    assert rc0.stop_line_crossed is False
+    assert tc0.red_light_stop is True
+
+
+def test_agent_route_waypoints_extracts_from_carla_local_planner():
+    from research.harness.runner import _agent_route_waypoints, _extract_route_points
+
+    plan = [
+        (SimpleNamespace(transform=_Transform(x=1.0, y=2.0)), "LANEFOLLOW"),
+        (SimpleNamespace(transform=_Transform(x=6.0, y=2.0)), "LANEFOLLOW"),
+        (SimpleNamespace(transform=_Transform(x=11.0, y=2.0)), "STRAIGHT"),
+    ]
+    planner = SimpleNamespace(get_plan=lambda: plan)
+    behavior_like_agent = SimpleNamespace(get_local_planner=lambda: planner)
+    raw = _agent_route_waypoints(behavior_like_agent)
+    pts = _extract_route_points(raw)
+    assert pts == [(1.0, 2.0), (6.0, 2.0), (11.0, 2.0)]

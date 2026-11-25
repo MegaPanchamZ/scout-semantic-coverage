@@ -107,6 +107,30 @@ def _clear_dynamic_actors_near_spawn(world: Any, spawn_location: Any, radius_m: 
             continue
 
 
+def _agent_route_waypoints(agent: Any) -> list[Any]:
+    """Extract planned route waypoints from SCOUT adapters or native CARLA BehaviorAgent/LocalPlanner."""
+    if hasattr(agent, "get_route_waypoints"):
+        return list(agent.get_route_waypoints() or [])
+    if hasattr(agent, "get_route_preview"):
+        return list(agent.get_route_preview() or [])
+    if hasattr(agent, "get_local_planner"):
+        try:
+            planner = agent.get_local_planner()
+            plan = planner.get_plan() if hasattr(planner, "get_plan") else None
+            if plan:
+                pts: list[dict[str, float]] = []
+                for entry in plan:
+                    wp = entry[0] if isinstance(entry, (tuple, list)) and entry else entry
+                    tf = getattr(wp, "transform", None)
+                    loc = getattr(tf, "location", None) if tf is not None else getattr(wp, "location", None)
+                    if loc is not None and hasattr(loc, "x") and hasattr(loc, "y"):
+                        pts.append({"x": float(loc.x), "y": float(loc.y)})
+                return pts
+        except Exception:
+            return []
+    return []
+
+
 def _extract_route_points(route_waypoints: Any) -> list[tuple[float, float]]:
     if not isinstance(route_waypoints, (list, tuple)):
         return []
@@ -712,12 +736,12 @@ class HarnessRunner:
             agent = make_agent(world, ego_vehicle, self.config.agent, client=client)
             agent.set_destination(goal_transform.location)
             phase_stage = "setup"
-            route_preview = agent.get_route_preview() if hasattr(agent, "get_route_preview") else []
-            route_waypoints = (
-                agent.get_route_waypoints()
-                if hasattr(agent, "get_route_waypoints")
-                else route_preview
+            route_preview = (
+                agent.get_route_preview()
+                if hasattr(agent, "get_route_preview")
+                else _agent_route_waypoints(agent)
             )
+            route_waypoints = _agent_route_waypoints(agent)
             if capture is not None:
                 capture.init_world_context(world, route_waypoints, ego_vehicle=ego_vehicle)
 

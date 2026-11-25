@@ -55,13 +55,13 @@ def build_case_controller(case_id: str) -> ScriptedCaseController:
         "collision_negative_close_pass": [
             ScheduledControl(0, 12, throttle=0.45),
             ScheduledControl(13, 35, throttle=0.0, brake=0.8),
-            ScheduledControl(36, 250, throttle=0.25),
+            ScheduledControl(36, 170, throttle=0.25),
+            ScheduledControl(171, 250, throttle=0.0, brake=1.0),
         ],
         "collision_uncertainty_disabled_sensor": [ScheduledControl(0, 250, throttle=0.45)],
         "near_miss_positive_resolved_conflict": [
-            ScheduledControl(0, 22, throttle=0.65),
-            ScheduledControl(23, 55, brake=0.95),
-            ScheduledControl(56, 250, throttle=0.3),
+            ScheduledControl(0, 30, throttle=0.65),
+            ScheduledControl(31, 250, brake=1.0),
         ],
         "near_miss_negative_parallel_adjacent": [ScheduledControl(0, 250, throttle=0.4, steer=0.0)],
         "lane_positive_prohibited_solid_crossing": [
@@ -70,13 +70,15 @@ def build_case_controller(case_id: str) -> ScriptedCaseController:
             ScheduledControl(33, 250, throttle=0.4, steer=0.0),
         ],
         "lane_negative_permitted_broken_change": [
-            ScheduledControl(0, 20, throttle=0.45),
-            ScheduledControl(21, 35, throttle=0.4, steer=0.2),
-            ScheduledControl(36, 250, throttle=0.4, steer=0.0),
+            ScheduledControl(0, 18, throttle=0.5),
+            ScheduledControl(19, 30, throttle=0.4, steer=0.12),
+            ScheduledControl(31, 42, throttle=0.4, steer=-0.12),
+            ScheduledControl(43, 70, throttle=0.35, steer=0.0),
+            ScheduledControl(71, 250, brake=1.0),
         ],
         "braking_positive_hazard_associated": [
-            ScheduledControl(0, 24, throttle=0.65),
-            ScheduledControl(25, 45, brake=1.0),
+            ScheduledControl(0, 30, throttle=0.65),
+            ScheduledControl(31, 250, brake=1.0),
         ],
         "braking_negative_low_speed_and_no_hazard": [
             ScheduledControl(0, 15, throttle=0.2),
@@ -84,20 +86,28 @@ def build_case_controller(case_id: str) -> ScriptedCaseController:
         ],
         "red_light_positive_crossing": [ScheduledControl(0, 250, throttle=0.7)],
         "red_light_negative_approach_stop": [
-            ScheduledControl(0, 25, throttle=0.4),
-            ScheduledControl(26, 250, brake=1.0),
+            ScheduledControl(0, 16, throttle=0.72),
+            ScheduledControl(17, 250, brake=1.0),
         ],
-        "other_rules_positive_stop_sign_speeding_wrong_way": [ScheduledControl(0, 250, throttle=0.95)],
+        "other_rules_positive_stop_sign_speeding_wrong_way": [
+            ScheduledControl(0, 44, throttle=0.65, steer=0.0),
+            ScheduledControl(45, 58, throttle=0.0, brake=1.0, steer=0.0),
+            ScheduledControl(59, 98, throttle=0.35, steer=-0.85),
+            ScheduledControl(99, 160, throttle=0.5, steer=0.0),
+        ],
         "other_rules_negative_compliant_and_reverse": [
             ScheduledControl(0, 20, throttle=0.25, reverse=True),
             ScheduledControl(21, 60, brake=1.0),
         ],
         "task_positive_free_route_stuck": [ScheduledControl(0, 250, brake=1.0)],
         "task_negative_legitimate_red_light_wait": [
-            ScheduledControl(0, 20, throttle=0.35),
-            ScheduledControl(21, 250, brake=1.0),
+            ScheduledControl(0, 18, throttle=0.75),
+            ScheduledControl(19, 250, brake=1.0),
         ],
-        "quality_positive_low_interaction": [ScheduledControl(0, 250, throttle=0.4)],
+        "quality_positive_low_interaction": [
+            ScheduledControl(0, 45, throttle=0.25),
+            ScheduledControl(46, 250, brake=0.8),
+        ],
         "quality_positive_spawn_failure": [ScheduledControl(0, 250, throttle=0.4)],
         "quality_negative_safe_meaningful_interaction": [ScheduledControl(0, 250, throttle=0.4)],
     }
